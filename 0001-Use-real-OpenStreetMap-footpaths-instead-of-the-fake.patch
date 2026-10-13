@@ -1,0 +1,606 @@
+From 797d26911fdce1f5f471f33b0f5c83e00ea40432 Mon Sep 17 00:00:00 2001
+From: Yohan George <yohangeorge0707@gmail.com>
+Date: Tue, 13 Oct 2026 13:46:24 +0000
+Subject: [PATCH] Use real OpenStreetMap footpaths instead of the fake grid
+ (task D3)
+
+- pathsense/osm.py: Overpass loader (campus-boundary / radius / bbox), junction-to-junction graph with real geometry
+- scripts/fetch_osm.py: one-command download + coverage report
+- run_pipeline --osm; demo draws and routes along real path geometry
+- sparse GCN adjacency so thousands of segments work
+- tests with an offline fake-Overpass fixture
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Lk7C8NeHyrJVTRqnTF9v7c
+---
+ README.md               |  10 +--
+ app/server.py           |   8 ++-
+ app/static/index.html   |   8 +--
+ docs/HANDOFF.md         |   2 +-
+ docs/ROADMAP.md         |   2 +-
+ pathsense/graph_prop.py |  18 +++---
+ pathsense/osm.py        | 133 ++++++++++++++++++++++++++++++++++++++++
+ pathsense/simulate.py   |  45 +++++++++-----
+ scripts/fetch_osm.py    |  31 ++++++++++
+ scripts/run_pipeline.py |  27 +++++---
+ tests/osm_fixture.py    |  29 +++++++++
+ tests/test_core.py      |  33 ++++++++++
+ 12 files changed, 302 insertions(+), 44 deletions(-)
+ create mode 100644 pathsense/osm.py
+ create mode 100644 scripts/fetch_osm.py
+ create mode 100644 tests/osm_fixture.py
+
+diff --git a/README.md b/README.md
+index 74117ba..be320b6 100644
+--- a/README.md
++++ b/README.md
+@@ -14,9 +14,11 @@ unreliable traces → graph propagation to segments nobody walked → accessibil
+ ```bash
+ python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
+ pip install -r requirements.txt
+-python scripts/run_pipeline.py        # simulate -> infer -> fuse -> propagate -> route; writes outputs/
++python scripts/fetch_osm.py           # download the REAL campus footpaths from OpenStreetMap -> data/osm_vit.json (needs internet)
++python scripts/run_pipeline.py --osm data/osm_vit.json   # real geometry + simulated surface data -> outputs/
++# (without --osm the pipeline uses a fake grid: fine for tests, but paths cut through buildings/lake)
+ python app/server.py                  # demo at http://127.0.0.1:5000  (click start + destination)
+-python -m pytest -q tests             # 9 tests
++python -m pytest -q tests             # 11 tests
+ ```
+ Deep-learning part (functionalities 3 & 4): `pip install -r requirements-ml.txt && python scripts/train_ssl_dann.py`
+ (written but **not yet run**, see HANDOFF).
+@@ -38,8 +40,8 @@ Demo app: `app/` (Flask + Leaflet). Handoff/plan: `docs/HANDOFF.md`, `docs/ROADM
+ 
+ ## Layout
+ ```
+-pathsense/        library (simulate, features, fusion, graph_prop, routing, ml/)
+-scripts/          run_pipeline.py, train_ssl_dann.py, create_issues.sh
++pathsense/        library (osm, simulate, features, fusion, graph_prop, routing, ml/)
++scripts/          fetch_osm.py, run_pipeline.py, train_ssl_dann.py, create_issues.sh
+ app/              Flask server + Leaflet front end
+ tests/            pytest
+ docs/             HANDOFF.md, ROADMAP.md, DATA_COLLECTION.md, paper/
+diff --git a/app/server.py b/app/server.py
+index 21b935c..4bd9d28 100644
+--- a/app/server.py
++++ b/app/server.py
+@@ -7,6 +7,7 @@ from flask import Flask, jsonify, request, send_from_directory
+ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+ from pathsense.routing import route, path_stats
+ from pathsense.config import PROFILES
++from pathsense.osm import edge_coords
+ 
+ ROOT = os.path.join(os.path.dirname(__file__), "..")
+ app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), "static"))
+@@ -20,15 +21,16 @@ def build_graph(m):
+     for e in m["edges"]:
+         t = e["true"]
+         G.add_edge(e["u"], e["v"], idx=e["idx"], length=e["length"], est=e["est"], observed=e["observed"],
+-                   grad=t["grad"], rough=t["rough"], kerbs=t["kerbs"], cls=t["cls"])
++                   grad=t["grad"], rough=t["rough"], kerbs=t["kerbs"], cls=t["cls"],
++                   geom=e.get("geom"), geom_from=e.get("geom_from"))
+     return G
+ 
+ 
+ G = build_graph(MAP)
+ 
+ 
+-def coords(path):
+-    return [[G.nodes[n]["lat"], G.nodes[n]["lon"]] for n in path]
++def coords(path):          # follows the real path geometry when the map came from OSM
++    return edge_coords(G, path)
+ 
+ 
+ @app.get("/")
+diff --git a/app/static/index.html b/app/static/index.html
+index 1a96f5e..001960c 100644
+--- a/app/static/index.html
++++ b/app/static/index.html
+@@ -12,7 +12,7 @@ td,th{border-bottom:1px solid #ddd;padding:3px;text-align:left}.sw{display:inlin
+ @media(max-width:700px){#map{left:0;top:340px}#side{width:100%;bottom:auto;height:340px}}
+ </style></head><body>
+ <div id="side"><h1>PathSense</h1><small>Accessibility-aware routing from smartphone motion data</small>
+-<div class="warn" id="syn" style="display:none">Demo uses <b>simulated</b> data.</div>
++<div class="warn" id="syn" style="display:none">Surface data (kerbs, slope, roughness) is <b>simulated</b>; path geometry is <span id="geo"></span>.</div>
+ <label>Mobility profile</label><select id="profile"></select>
+ <label>Map layer</label><select id="layer"><option value="est">Inferred by PathSense</option><option value="true">Ground truth (simulation)</option></select>
+ <p><small>Click the map to set <b>start</b>, then <b>destination</b>. Click again to restart.</small></p>
+@@ -23,11 +23,11 @@ td,th{border-bottom:1px solid #ddd;padding:3px;text-align:left}.sw{display:inlin
+ <div id="map"></div>
+ <script>
+ const COL=["#2e9e4f","#f0a020","#d63a3a"];let M,map,edgeLayer,routeLayer,pts=[],markers=[];
+-map=L.map('map');L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
++map=L.map('map',{preferCanvas:true});L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+ function draw(){if(edgeLayer)map.removeLayer(edgeLayer);edgeLayer=L.layerGroup().addTo(map);const k=document.getElementById('layer').value;
+  const N=Object.fromEntries(M.nodes.map(n=>[n.id,n]));
+  M.edges.forEach(e=>{const a=N[e.u],b=N[e.v],c=(k==='est'?e.est:e.true).cls;
+-  L.polyline([[a.lat,a.lon],[b.lat,b.lon]],{color:COL[c],weight:5,opacity:.85,dashArray:(k==='est'&&!e.observed)?'6 6':null}).bindTooltip(
++  L.polyline(e.geom||[[a.lat,a.lon],[b.lat,b.lon]],{color:COL[c],weight:4,opacity:.85,dashArray:(k==='est'&&!e.observed)?'6 6':null}).bindTooltip(
+   `segment ${e.idx} · ${M.classes[c]}<br>roughness ${(k==='est'?e.est:e.true).rough.toFixed(2)} · gradient ${(k==='est'?e.est:e.true).grad.toFixed(1)}° · kerbs ${(k==='est'?e.est:e.true).kerbs}<br>${e.observed?e.n_obs+' observations':'not observed'}`).addTo(edgeLayer)})}
+ function nearest(ll){let b=null,d=1e9;M.nodes.forEach(n=>{const x=(n.lat-ll.lat)**2+(n.lon-ll.lng)**2;if(x<d){d=x;b=n}});return b}
+ function clear(){pts=[];markers.forEach(m=>map.removeLayer(m));markers=[];if(routeLayer)map.removeLayer(routeLayer);document.getElementById('stats').innerHTML=''}
+@@ -39,7 +39,7 @@ async function go(){const p=document.getElementById('profile').value;const r=awa
+  <tr><td><span class="sw" style="background:#222"></span>Shortest</td>${f(r.shortest)}</tr><tr><td><span class="sw" style="background:#1565c0"></span>PathSense</td>${f(r.pathsense)}</tr></table>`}
+ map.on('click',e=>{if(pts.length==2)clear();const n=nearest(e.latlng);pts.push(n);markers.push(L.marker([n.lat,n.lon]).addTo(map).bindTooltip(pts.length==1?'Start':'Destination',{permanent:true}));if(pts.length==2)go()});
+ document.getElementById('clear').onclick=clear;document.getElementById('layer').onchange=draw;document.getElementById('profile').onchange=()=>{if(pts.length==2)go()};
+-fetch('/api/map').then(r=>r.json()).then(m=>{M=m;if(m.synthetic)document.getElementById('syn').style.display='block';
++fetch('/api/map').then(r=>r.json()).then(m=>{M=m;if(m.synthetic){document.getElementById('syn').style.display='block';document.getElementById('geo').textContent=m.real_geometry?'real OpenStreetMap':'a FAKE grid (run scripts/fetch_osm.py)'}
+  const s=document.getElementById('profile');Object.keys(m.profiles).filter(p=>p!=='shortest').forEach(p=>s.add(new Option(p.replace('_',' '),p)));
+  const b=L.latLngBounds(m.nodes.map(n=>[n.lat,n.lon]));map.fitBounds(b);draw()});
+ </script></body></html>
+diff --git a/docs/HANDOFF.md b/docs/HANDOFF.md
+index f0df278..8ccddc6 100644
+--- a/docs/HANDOFF.md
++++ b/docs/HANDOFF.md
+@@ -23,7 +23,7 @@ Team: George C Mathew (coordinator), Yohan George, Siddhant Gaddi. School: SCOPE
+ |---|---|
+ | Simulator, features, fusion, GCN, routing, pipeline, Flask+Leaflet demo | **built, 9 tests pass, pipeline runs end to end** |
+ | `scripts/train_ssl_dann.py`, `pathsense/ml/models.py` (PyTorch) | **written but never executed** (author's sandbox had no torch). Expect small bugs. Task M1 |
+-| Real data, map matching, OSM graph, Android app, real evaluation | **not started** |
++| Real data, map matching, Android app, real evaluation | **not started** |
+ | Paper | draft in Springer-style docx; Results TBD; author block emails + Authors' contributions TBD |
+ 
+ Simulated-data findings worth knowing (seed 0, `python scripts/run_pipeline.py`):
+diff --git a/docs/ROADMAP.md b/docs/ROADMAP.md
+index ae3beec..4839a2b 100644
+--- a/docs/ROADMAP.md
++++ b/docs/ROADMAP.md
+@@ -19,7 +19,7 @@ Priority: **P0** critical path, P1 important, P2 nice to have.
+ - ☐ F7 (P0) Preprocessing retuned for wheeled motion: choose FS, window length, filter cut-offs from pilot spectra. Ablation: gait-style windows (e.g. 2 s, 50 % overlap, 0.3–3 Hz gait band) vs retuned. DoD: table + spectrum figure.
+ - ◐ F2 (P0) Fusion. Currently ≈ majority vote on simulated data. Try: (a) weight by trace quality (GPS accuracy, speed consistency) as priors in the E-step; (b) run DS on discretised *features* (kerb yes/no, grade bins, rough bins) rather than a class predicted by one shared classifier; (c) contributor×device confusion matrices; (d) compare with majority/weighted voting at different numbers of traces per segment. DoD: honest comparison on real data with CIs; if it doesn't help, report that.
+ - ◐ F5 (P1) Replace numpy GCN with PyTorch GCN/GAT (`pathsense/ml/gnn_torch.py`), keep the numpy one as a baseline. DoD: held-out-segment MAE vs mean/neighbour-average baselines.
+-- ☐ D3 (P0) Real road graph for VIT + Katpadi: OSM via `osmnx`; hand-correct footpaths in JOSM if needed. Decide F5 vs multi-task swap by this task's outcome. DoD: graph with ≥100 segments and `length`, node coordinates.
++- ◐ D3 (P0) [loader + fetch script + demo done; run `scripts/fetch_osm.py` and check campus coverage, hand-fix in JOSM] Real road graph for VIT + Katpadi: OSM via `osmnx`; hand-correct footpaths in JOSM if needed. Decide F5 vs multi-task swap by this task's outcome. DoD: graph with ≥100 segments and `length`, node coordinates.
+ - ☐ F6 (P1) Tune `config.PROFILES` weights with real users or accessibility guidelines; optional hard constraints (e.g. never cross a kerb for manual wheelchair unless no alternative). DoD: documented rationale per weight.
+ 
+ ## Phase 3 — Deep learning (F3, F4)
+diff --git a/pathsense/graph_prop.py b/pathsense/graph_prop.py
+index b641227..4f38fd8 100644
+--- a/pathsense/graph_prop.py
++++ b/pathsense/graph_prop.py
+@@ -5,6 +5,7 @@ so it runs anywhere and is unit-tested. A PyTorch / GAT version lives in pathsen
+ (task G2). Targets are continuous per-segment attributes [roughness, gradient, kerb rate].
+ """
+ import numpy as np, networkx as nx
++import scipy.sparse as sp
+ 
+ 
+ def norm_adj(Gline, order):
+@@ -21,17 +22,17 @@ class GCN:
+         self.m = {k: 0 for k in "W1 b1 W2 b2".split()}; self.v = {k: 0 for k in self.m}; self.t = 0
+ 
+     def forward(self, A, X):
+-        self.AX = A @ X
++        self.AX = np.asarray(A @ X)
+         self.Z1 = self.AX @ self.W1 + self.b1
+         self.H1 = np.maximum(self.Z1, 0)
+-        self.AH = A @ self.H1
++        self.AH = np.asarray(A @ self.H1)
+         return self.AH @ self.W2 + self.b2
+ 
+     def step(self, A, Y, T, mask, lr=0.01):
+         n = max(mask.sum(), 1)
+         dY = 2 * (Y - T) * mask[:, None] / n
+         g = {"W2": self.AH.T @ dY, "b2": dY.sum(0)}
+-        dZ1 = (A @ (dY @ self.W2.T)) * (self.Z1 > 0)
++        dZ1 = np.asarray(A @ (dY @ self.W2.T)) * (self.Z1 > 0)
+         g["W1"] = self.AX.T @ dZ1; g["b1"] = dZ1.sum(0)
+         self.t += 1
+         for k, gr in g.items():                                # Adam
+@@ -46,12 +47,15 @@ def propagate(G, est, observed, epochs=600, hide=0.25, seed=0):
+     n = G.number_of_edges()
+     key = {G[u][v]["idx"]: (u, v) for u, v in G.edges}
+     Lg = nx.line_graph(G)
+-    # adjacency indexed by edge idx
+-    A_idx = np.zeros((n, n))
++    # sparse symmetric-normalised adjacency indexed by edge idx (real campus graphs have thousands of segments)
++    r, c = [], []
+     for a, b in Lg.edges:
+         i, j = G[a[0]][a[1]]["idx"], G[b[0]][b[1]]["idx"]
+-        A_idx[i, j] = A_idx[j, i] = 1
+-    A_idx += np.eye(n); d = A_idx.sum(1); A = A_idx / np.sqrt(d[:, None] * d[None, :])
++        r += [i, j]; c += [j, i]
++    A_idx = sp.coo_matrix((np.ones(len(r)), (r, c)), shape=(n, n)).tocsr()
++    A_idx.data[:] = 1.0
++    A_idx = A_idx + sp.eye(n, format="csr"); d = np.asarray(A_idx.sum(1)).ravel()
++    A = sp.diags(d ** -0.5) @ A_idx @ sp.diags(d ** -0.5)
+     mid = np.array([[(G.nodes[key[i][0]]["x"] + G.nodes[key[i][1]]["x"]) / 2,
+                      (G.nodes[key[i][0]]["y"] + G.nodes[key[i][1]]["y"]) / 2] for i in range(n)])
+     mid = (mid - mid.mean(0)) / mid.std(0)
+diff --git a/pathsense/osm.py b/pathsense/osm.py
+new file mode 100644
+index 0000000..3e2ff8f
+--- /dev/null
++++ b/pathsense/osm.py
+@@ -0,0 +1,133 @@
++"""Real footpath/road graph from OpenStreetMap (roadmap task D3). Standard library + networkx only.
++
++    python scripts/fetch_osm.py                 # whole VIT Vellore campus -> data/osm_vit.json (cached)
++    python scripts/run_pipeline.py --osm data/osm_vit.json
++
++Why this exists: the original demo drew a *fake* jittered grid over the campus coordinates, so "roads" cut through
++buildings and the lake. Real OSM ways follow real paths, so that cannot happen any more.
++"""
++import json, math, os, urllib.parse, urllib.request
++from collections import Counter
++import networkx as nx
++from .config import LAT0, LON0
++
++ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter",
++             "https://overpass.private.coffee/api/interpreter"]
++HIGHWAYS = ("footway|path|pedestrian|steps|service|residential|living_street|unclassified|tertiary|secondary|"
++            "primary|track|cycleway|road|tertiary_link|secondary_link|primary_link")
++# the campus polygon as mapped in OSM (name match is case-insensitive); used to cover the WHOLE campus
++CAMPUS_NAME = "Vellore Institute of Technology"
++
++
++def _query(kind, lat, lon, radius, bbox):
++    hw = f'["highway"~"^({HIGHWAYS})$"]'
++    if kind == "bbox":
++        s, w, n, e = bbox
++        sel = f"way{hw}({s},{w},{n},{e});"
++    elif kind == "area":    # every walkable way inside the campus boundary (+ nothing outside it)
++        return (f'[out:json][timeout:120];(way["amenity"="university"]["name"~"{CAMPUS_NAME}",i];'
++                f'relation["amenity"="university"]["name"~"{CAMPUS_NAME}",i];);map_to_area->.c;'
++                f'way{hw}(area.c);(._;>;);out body;')
++    else:
++        sel = f"way{hw}(around:{radius},{lat},{lon});"
++    return f"[out:json][timeout:120];({sel});(._;>;);out body;"
++
++
++def _post(q, timeout):
++    last = None
++    for url in ENDPOINTS:
++        try:
++            req = urllib.request.Request(url, data=urllib.parse.urlencode({"data": q}).encode(),
++                                         headers={"User-Agent": "PathSense-student-project/0.2"})
++            return json.loads(urllib.request.urlopen(req, timeout=timeout).read().decode())
++        except Exception as e:                      # try the next mirror
++            last = e
++    raise RuntimeError(f"Overpass download failed on all mirrors: {last}")
++
++
++def fetch(mode="area", lat=LAT0, lon=LON0, radius=1500, bbox=None, cache=None, timeout=180):
++    """mode: 'area' (campus boundary from OSM; falls back to radius if the boundary isn't found),
++    'radius' (circle around lat/lon) or 'bbox' (south,west,north,east). Result cached as JSON."""
++    if cache and os.path.exists(cache):
++        return json.load(open(cache))
++    data = None
++    if mode == "area":
++        data = _post(_query("area", lat, lon, radius, bbox), timeout)
++        if not any(e["type"] == "way" for e in data.get("elements", [])):
++            print("campus boundary not found in OSM -> falling back to radius search")
++            data = None
++    if data is None:
++        data = _post(_query("bbox" if mode == "bbox" else "radius", lat, lon, radius, bbox), timeout)
++    if cache:
++        os.makedirs(os.path.dirname(cache) or ".", exist_ok=True)
++        json.dump(data, open(cache, "w"))
++    return data
++
++
++def _m(lat1, lon1, lat2, lon2):
++    return math.hypot((lon2 - lon1) * 111320 * math.cos(math.radians((lat1 + lat2) / 2)), (lat2 - lat1) * 111320)
++
++
++def _walkable(tags):
++    if tags.get("foot") == "no" or tags.get("indoor") or tags.get("area") == "yes":
++        return False
++    return tags.get("access") not in ("private", "no") or tags.get("foot") in ("yes", "designated", "permissive")
++
++
++def build_graph(osm, lat0=None, lon0=None, min_len=2.0):
++    """Overpass JSON -> undirected nx.Graph, nodes 0..n-1 with (x,y metres, lat, lon). Edges are junction-to-junction
++    segments with: length (m), geom ([[lat,lon],...] following the real path), geom_from (node id geom starts at),
++    steps (bool), osm_surface, name. Only the largest connected component is kept (islands can't be routed to)."""
++    nodes = {e["id"]: (e["lat"], e["lon"]) for e in osm["elements"] if e["type"] == "node"}
++    ways = [w for w in osm["elements"] if w["type"] == "way" and w.get("nodes") and _walkable(w.get("tags", {}))]
++    if not ways:
++        raise ValueError("no walkable ways found")
++    if lat0 is None:                                # centre the local metric frame on the data itself
++        lat0 = sum(v[0] for v in nodes.values()) / len(nodes); lon0 = sum(v[1] for v in nodes.values()) / len(nodes)
++    cnt = Counter(n for w in ways for n in set(w["nodes"]))
++    raw = nx.Graph()
++    for w in ways:
++        ns = [n for n in w["nodes"] if n in nodes]
++        if len(ns) < 2:
++            continue
++        cut = [0] + [i for i in range(1, len(ns) - 1) if cnt[ns[i]] > 1] + [len(ns) - 1]
++        tags = w.get("tags", {})
++        for a, b in zip(cut[:-1], cut[1:]):
++            seg = ns[a:b + 1]; u, v = seg[0], seg[-1]
++            geom = [list(nodes[n]) for n in seg]
++            L = sum(_m(*geom[i], *geom[i + 1]) for i in range(len(geom) - 1))
++            if u == v or L < min_len:
++                continue
++            if raw.has_edge(u, v) and raw[u][v]["length"] <= L:
++                continue
++            raw.add_edge(u, v, length=L, geom=geom, geom_from=u, steps=tags.get("highway") == "steps",
++                         osm_surface=tags.get("surface"), name=tags.get("name"))
++    comp = max(nx.connected_components(raw), key=len)
++    raw = raw.subgraph(comp).copy()
++    ids = {n: i for i, n in enumerate(raw.nodes)}
++    G = nx.Graph()
++    for n, i in ids.items():
++        lat, lon = nodes[n]
++        G.add_node(i, lat=lat, lon=lon, x=(lon - lon0) * 111320 * math.cos(math.radians(lat0)), y=(lat - lat0) * 111320)
++    for u, v, d in raw.edges(data=True):
++        G.add_edge(ids[u], ids[v], **{**d, "geom_from": ids[d["geom_from"]]})
++    G.graph.update(lat0=lat0, lon0=lon0)
++    return G
++
++
++def load_graph(path, **kw):
++    return build_graph(json.load(open(path)), **kw)
++
++
++def edge_coords(G, path):
++    """Lat/lon polyline for a node path that FOLLOWS the real edge geometry (not straight lines between junctions)."""
++    out = []
++    for u, v in zip(path[:-1], path[1:]):
++        d = G[u][v]
++        g = d.get("geom")
++        if not g:
++            g = [[G.nodes[u]["lat"], G.nodes[u]["lon"]], [G.nodes[v]["lat"], G.nodes[v]["lon"]]]
++        elif d.get("geom_from", u) != u:
++            g = g[::-1]
++        out.extend(g if not out else g[1:])
++    return out
+diff --git a/pathsense/simulate.py b/pathsense/simulate.py
+index 72b59e9..6babc3f 100644
+--- a/pathsense/simulate.py
++++ b/pathsense/simulate.py
+@@ -19,8 +19,33 @@ def _smooth_field(rng, xs, ys, n=5, scale=120.0):
+     return f / f.max()
+ 
+ 
++def add_surface_attributes(G, seed=0, scale_frac=0.25):
++    """Give any road graph an edge `idx` plus SIMULATED ground-truth surface attributes (rough, grad, kerbs, cls).
++    Nodes need x,y in metres. Existing edge 'length' is kept; edges flagged steps=True get >=1 kerb.
++    Replace with real ground truth (task P4) when it exists."""
++    rng = np.random.default_rng(seed)
++    E = list(G.edges)
++    xs = np.array([G.nodes[n]["x"] for n in G.nodes]); ys = np.array([G.nodes[n]["y"] for n in G.nodes])
++    ext = max(np.ptp(xs), np.ptp(ys), 1.0)
++    mx = np.array([(G.nodes[u]["x"] + G.nodes[v]["x"]) / 2 for u, v in E])
++    my = np.array([(G.nodes[u]["y"] + G.nodes[v]["y"]) / 2 for u, v in E])
++    rough_f = _smooth_field(rng, mx, my, n=5, scale=scale_frac * ext)
++    grad_f = _smooth_field(rng, mx, my, n=3, scale=scale_frac * 1.25 * ext)
++    kerb_f = _smooth_field(rng, mx, my, n=4, scale=scale_frac * 0.75 * ext)
++    for k, (u, v) in enumerate(E):
++        d = G[u][v].get("length") or float(np.hypot(G.nodes[u]["x"] - G.nodes[v]["x"], G.nodes[u]["y"] - G.nodes[v]["y"]))
++        rough = float(np.clip(0.9 * rough_f[k] ** 1.5 + rng.normal(0, 0.04), 0, 1))
++        grad = float(np.clip(9.5 * grad_f[k] ** 2 + abs(rng.normal(0, 0.4)), 0, 12))
++        kerbs = int(rng.poisson(0.5 * kerb_f[k] ** 2.5))
++        if G[u][v].get("steps"):
++            kerbs = max(kerbs, 1)
++        G[u][v].update(idx=k, length=float(d), rough=rough, grad=grad, kerbs=kerbs,
++                       cls=int(label_from_attrs(grad, rough, kerbs)))
++    return G
++
++
+ def make_campus_graph(nx_=9, ny_=7, spacing=60.0, seed=0, drop=0.12):
+-    """Jittered grid road network with spatially smooth ground-truth surface attributes."""
++    """Jittered grid road network (FAKE geometry) -- only for tests/offline demo. Use pathsense.osm for real paths."""
+     rng = np.random.default_rng(seed)
+     G0 = nx.grid_2d_graph(nx_, ny_)
+     pos = {n: (n[0] * spacing + rng.normal(0, spacing * .12), n[1] * spacing + rng.normal(0, spacing * .12)) for n in G0}
+@@ -28,28 +53,14 @@ def make_campus_graph(nx_=9, ny_=7, spacing=60.0, seed=0, drop=0.12):
+     G = nx.Graph()
+     for n, i in ids.items():
+         G.add_node(i, x=pos[n][0], y=pos[n][1])
+-    edges = list(G0.edges)
+-    for u, v in edges:
++    for u, v in G0.edges:
+         G.add_edge(ids[u], ids[v])
+     for u, v in list(G.edges):                         # randomly drop edges, keep connectivity
+         if rng.random() < drop:
+             G.remove_edge(u, v)
+             if not nx.is_connected(G):
+                 G.add_edge(u, v)
+-    E = list(G.edges)
+-    mx = np.array([(G.nodes[u]["x"] + G.nodes[v]["x"]) / 2 for u, v in E])
+-    my = np.array([(G.nodes[u]["y"] + G.nodes[v]["y"]) / 2 for u, v in E])
+-    rough_f = _smooth_field(rng, mx, my)
+-    grad_f = _smooth_field(rng, mx, my, n=3, scale=150.0)
+-    kerb_f = _smooth_field(rng, mx, my, n=4, scale=90.0)
+-    for k, (u, v) in enumerate(E):
+-        d = float(np.hypot(G.nodes[u]["x"] - G.nodes[v]["x"], G.nodes[u]["y"] - G.nodes[v]["y"]))
+-        rough = float(np.clip(0.9 * rough_f[k] ** 1.5 + rng.normal(0, 0.04), 0, 1))
+-        grad = float(np.clip(9.5 * grad_f[k] ** 2 + abs(rng.normal(0, 0.4)), 0, 12))
+-        kerbs = int(rng.poisson(0.5 * kerb_f[k] ** 2.5))
+-        G[u][v].update(idx=k, length=d, rough=rough, grad=grad, kerbs=kerbs,
+-                       cls=int(label_from_attrs(grad, rough, kerbs)))
+-    return G
++    return add_surface_attributes(G, seed=seed)
+ 
+ 
+ @dataclass
+diff --git a/scripts/fetch_osm.py b/scripts/fetch_osm.py
+new file mode 100644
+index 0000000..78375e6
+--- /dev/null
++++ b/scripts/fetch_osm.py
+@@ -0,0 +1,31 @@
++"""Download the real walkable network of the VIT Vellore campus from OpenStreetMap and cache it (needs internet).
++
++    python scripts/fetch_osm.py                         # whole campus, using the campus boundary mapped in OSM
++    python scripts/fetch_osm.py --mode radius --radius 1800        # fallback: circle around config.LAT0/LON0
++    python scripts/fetch_osm.py --mode bbox --bbox 12.955,79.140,12.985,79.175   # south,west,north,east
++
++Then:  python scripts/run_pipeline.py --osm data/osm_vit.json && python app/server.py
++Check the printed bounding box against the real campus; if part is missing, widen with --mode radius/bbox.
++Map data (c) OpenStreetMap contributors, ODbL.
++"""
++import argparse, os, sys
++sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
++from pathsense.osm import fetch, build_graph
++from pathsense.config import LAT0, LON0
++
++ap = argparse.ArgumentParser()
++ap.add_argument("--mode", choices=["area", "radius", "bbox"], default="area")
++ap.add_argument("--lat", type=float, default=LAT0); ap.add_argument("--lon", type=float, default=LON0)
++ap.add_argument("--radius", type=int, default=1500); ap.add_argument("--bbox", type=lambda s: [float(x) for x in s.split(",")])
++ap.add_argument("--out", default="data/osm_vit.json")
++a = ap.parse_args()
++if a.mode == "bbox" and not a.bbox:
++    ap.error("--bbox south,west,north,east is required with --mode bbox")
++if os.path.exists(a.out):
++    os.remove(a.out)
++data = fetch(a.mode, a.lat, a.lon, a.radius, a.bbox, cache=a.out)
++G = build_graph(data)
++la = [d["lat"] for _, d in G.nodes(data=True)]; lo = [d["lon"] for _, d in G.nodes(data=True)]
++km = sum(d["length"] for *_, d in G.edges(data=True)) / 1000
++print(f"saved {a.out}: {G.number_of_nodes()} junctions, {G.number_of_edges()} segments, {km:.1f} km of paths")
++print(f"coverage  lat {min(la):.4f}..{max(la):.4f}   lon {min(lo):.4f}..{max(lo):.4f}")
+diff --git a/scripts/run_pipeline.py b/scripts/run_pipeline.py
+index e2a20cc..4d152e3 100644
+--- a/scripts/run_pipeline.py
++++ b/scripts/run_pipeline.py
+@@ -1,6 +1,9 @@
+ """End-to-end PathSense pipeline on SYNTHETIC data. Writes outputs/metrics.json and outputs/map.json (demo app).
+ 
+     python scripts/run_pipeline.py [--traces 70] [--seed 0]
++    python scripts/run_pipeline.py --osm data/osm_vit.json     # REAL campus paths (fetch with scripts/fetch_osm.py)
++
++Only the surface data (kerbs/gradient/roughness/traces) is simulated; with --osm the geometry is real OpenStreetMap.
+ 
+ All numbers printed here come from simulated data and are NOT research results.
+ """
+@@ -11,17 +14,23 @@ from sklearn.ensemble import RandomForestClassifier
+ from sklearn.linear_model import LinearRegression
+ from pathsense.config import *
+ from pathsense.labels import label_from_attrs
+-from pathsense.simulate import make_campus_graph, make_traces
++from pathsense.simulate import make_campus_graph, add_surface_attributes, make_traces
++from pathsense.osm import load_graph
+ from pathsense.features import segment_observations, obs_matrix
+ from pathsense.fusion import majority_vote, dawid_skene, contributor_reliability
+ from pathsense.graph_prop import propagate
+ from pathsense.routing import route, path_stats
+ 
+ 
+-def run(n_traces=50, seed=0, out="outputs", verbose=True):
++def run(n_traces=None, seed=0, out="outputs", verbose=True, osm=None):
+     rng = np.random.default_rng(seed)
+-    G = make_campus_graph(seed=seed)
++    if osm:
++        G = add_surface_attributes(load_graph(osm), seed=seed)
++    else:
++        G = make_campus_graph(seed=seed)
+     n_edges = G.number_of_edges()
++    if n_traces is None:                 # enough walkers to observe a realistic share of a big real graph
++        n_traces = max(50, int(0.4 * n_edges)) if osm else 50
+     truth = np.zeros(n_edges, int); T_rough = np.zeros(n_edges); T_grad = np.zeros(n_edges); T_k = np.zeros(n_edges)
+     for u, v, d in G.edges(data=True):
+         i = d["idx"]; truth[i] = d["cls"]; T_rough[i] = d["rough"]; T_grad[i] = d["grad"]; T_k[i] = d["kerbs"]
+@@ -99,10 +108,14 @@ def run(n_traces=50, seed=0, out="outputs", verbose=True):
+     # --- export for the demo app ---
+     os.makedirs(out, exist_ok=True)
+     def ll(x, y_): return [LAT0 + y_ / 111320.0, LON0 + x / (111320.0 * np.cos(np.deg2rad(LAT0)))]
+-    nodes_j = [dict(id=n, x=G.nodes[n]["x"], y=G.nodes[n]["y"], lat=ll(G.nodes[n]["x"], G.nodes[n]["y"])[0], lon=ll(G.nodes[n]["x"], G.nodes[n]["y"])[1]) for n in G.nodes]
++    def node_ll(n):                      # real graphs carry lat/lon; the fake grid is pinned on the campus anchor
++        d = G.nodes[n]
++        return (d["lat"], d["lon"]) if "lat" in d else tuple(ll(d["x"], d["y"]))
++    nodes_j = [dict(id=n, x=G.nodes[n]["x"], y=G.nodes[n]["y"], lat=node_ll(n)[0], lon=node_ll(n)[1]) for n in G.nodes]
+     edges_j = [dict(u=u, v=v, idx=d["idx"], length=d["length"], observed=d["observed"], n_obs=d["n_obs"],
++                    geom=d.get("geom"), geom_from=d.get("geom_from"), name=d.get("name"), steps=bool(d.get("steps")),
+                     est=d["est"], true=dict(grad=d["grad"], rough=d["rough"], kerbs=d["kerbs"], cls=d["cls"])) for u, v, d in G.edges(data=True)]
+-    json.dump(dict(nodes=nodes_j, edges=edges_j, profiles=PROFILES, classes=CLASSES, synthetic=True), open(f"{out}/map.json", "w"))
++    json.dump(dict(nodes=nodes_j, edges=edges_j, profiles=PROFILES, classes=CLASSES, synthetic=True, real_geometry=bool(osm)), open(f"{out}/map.json", "w"))
+     json.dump(M, open(f"{out}/metrics.json", "w"), indent=2)
+     if verbose:
+         print(json.dumps(M, indent=2))
+@@ -110,6 +123,6 @@ def run(n_traces=50, seed=0, out="outputs", verbose=True):
+ 
+ 
+ if __name__ == "__main__":
+-    ap = argparse.ArgumentParser(); ap.add_argument("--traces", type=int, default=50); ap.add_argument("--seed", type=int, default=0)
++    ap = argparse.ArgumentParser(); ap.add_argument("--traces", type=int, default=None); ap.add_argument("--osm", default=None, help="Overpass JSON from scripts/fetch_osm.py"); ap.add_argument("--seed", type=int, default=0)
+     ap.add_argument("--out", default="outputs"); a = ap.parse_args()
+-    run(a.traces, a.seed, a.out)
++    run(a.traces, a.seed, a.out, osm=a.osm)
+diff --git a/tests/osm_fixture.py b/tests/osm_fixture.py
+new file mode 100644
+index 0000000..a216f55
+--- /dev/null
++++ b/tests/osm_fixture.py
+@@ -0,0 +1,29 @@
++"""Tiny fake Overpass response (same JSON shape the real API returns) so OSM code is testable offline."""
++import numpy as np
++from pathsense.config import LAT0, LON0
++
++
++def fake_overpass(nx_=14, ny_=10, step_m=55.0, seed=0):
++    rng = np.random.default_rng(seed)
++    dlat, dlon = step_m / 111320.0, step_m / (111320.0 * np.cos(np.deg2rad(LAT0)))
++    els, nid = [], {}
++    def node(i, j):
++        if (i, j) not in nid:
++            k = len(nid) + 1; nid[(i, j)] = k
++            els.append(dict(type="node", id=k, lat=LAT0 + (j - ny_ / 2) * dlat + rng.normal(0, dlat * .1),
++                            lon=LON0 + (i - nx_ / 2) * dlon + rng.normal(0, dlon * .1)))
++        return nid[(i, j)]
++    wid = 1000
++    def way(ns, **tags):
++        nonlocal wid; wid += 1; els.append(dict(type="way", id=wid, nodes=ns, tags=tags))
++    for j in range(ny_):                                   # long E-W footways: junction nodes only where a N-S way crosses
++        way([node(i, j) for i in range(nx_)], highway="footway")
++    for i in range(0, nx_, 2):                             # N-S paths on every 2nd column
++        way([node(i, j) for j in range(ny_)], highway="service", name=f"Road {i}")
++    way([node(1, 1), node(1, 2)], highway="steps")         # steps (inside the grid, shares nodes)
++    way([node(3, 3), node(3, 4)], highway="footway", foot="no")      # must be ignored
++    way([node(5, 5), node(5, 6)], highway="service", access="private")   # must be ignored
++    a, b = 9001, 9002                                      # disconnected island: must be dropped
++    els += [dict(type="node", id=a, lat=LAT0 + .02, lon=LON0), dict(type="node", id=b, lat=LAT0 + .0201, lon=LON0)]
++    way([a, b], highway="footway")
++    return dict(elements=els)
+diff --git a/tests/test_core.py b/tests/test_core.py
+index 604d4f9..3351bf4 100644
+--- a/tests/test_core.py
++++ b/tests/test_core.py
+@@ -1,5 +1,6 @@
+ import numpy as np, sys, os
+ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
++sys.path.insert(0, os.path.dirname(__file__))
+ from pathsense.labels import label_from_attrs
+ from pathsense.fusion import dawid_skene, majority_vote
+ from pathsense.features import detect_kerbs, roughness_sigma, pitch_deg
+@@ -72,3 +73,35 @@ def test_windows_do_not_span_segments():
+     G = make_campus_graph(seed=0); T = make_traces(G, 15)
+     X, y, dev, seg = make_windows(T, G)
+     assert X.shape[1:] == (6, 100) and len(X) == len(y) == len(dev) > 100
++
++
++def test_osm_graph_real_geometry():
++    from osm_fixture import fake_overpass
++    from pathsense.osm import build_graph, edge_coords
++    from pathsense.simulate import add_surface_attributes
++    G = build_graph(fake_overpass())
++    assert G.number_of_edges() > 100
++    import networkx as nx
++    assert nx.is_connected(G)                                   # island dropped
++    assert all(d["length"] >= 2 for *_, d in G.edges(data=True))
++    assert any(d["steps"] for *_, d in G.edges(data=True))
++    assert not any(d.get("name") is None and d.get("geom") is None for *_, d in G.edges(data=True))
++    G = add_surface_attributes(G)
++    assert all(d["kerbs"] >= 1 for *_, d in G.edges(data=True) if d["steps"])
++    path = nx.shortest_path(G, 0, G.number_of_nodes() - 1, weight="length")
++    c = edge_coords(G, path)
++    assert len(c) >= len(path)                                  # follows geometry, orientation-safe
++    assert c[0] == [G.nodes[path[0]]["lat"], G.nodes[path[0]]["lon"]]
++    assert c[-1] == [G.nodes[path[-1]]["lat"], G.nodes[path[-1]]["lon"]]
++
++
++def test_pipeline_on_osm_graph(tmp_path):
++    import json
++    from osm_fixture import fake_overpass
++    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
++    from run_pipeline import run
++    p = tmp_path / "osm.json"; p.write_text(json.dumps(fake_overpass()))
++    M = run(osm=str(p), out=str(tmp_path / "o"), verbose=False)
++    m = json.load(open(tmp_path / "o" / "map.json"))
++    assert m["real_geometry"] and all(e["geom"] for e in m["edges"])
++    assert 0.1 < M["coverage"] < 1.0 and M["map_class_acc_all_segments"] > 0.4
+-- 
+2.43.0
+
