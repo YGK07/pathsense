@@ -1,0 +1,2 @@
+run_id,date,start_time_local,contributor,phone_id,phone_model,android_version,mount,route_id,direction,run_no,measured_acc_hz,median_gps_acc_m,weather_surface_wet,notes
+c01_phoneA_hand_r03_run2_fwd,2026-10-20,16:05,c01,phoneA,EXAMPLE Redmi Note 12,14,hand,r03,fwd,2,100,6,no,EXAMPLE ROW - delete

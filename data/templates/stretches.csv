@@ -1,0 +1,2 @@
+stretch_id,route_id,start_lat,start_lon,end_lat,end_lon,start_landmark,end_landmark,surface,gradient_deg,uphill_towards,roughness_rater1,roughness_rater2,photo,notes
+s001,r03,12.96900,79.15570,12.96950,79.15610,EXAMPLE main gate,EXAMPLE library steps,paver,5.2,end,0.4,0.4,s001.jpg,EXAMPLE ROW - delete

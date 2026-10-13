@@ -1,0 +1,2 @@
+feature_id,route_id,type,lat,lon,landmark,height_cm,has_ramp_alternative,photo,recorded_by,notes
+f001,r03,kerb,12.96920,79.15590,EXAMPLE kerb at SJT gate 2,14,no,f001.jpg,c01,EXAMPLE ROW - delete
