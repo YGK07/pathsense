@@ -1,0 +1,3 @@
+-r requirements.txt
+torch>=2.2          # needed for scripts/train_ssl_dann.py (functionalities 3 and 4)
+# osmnx>=1.9        # uncomment for task D3 (real Katpadi/VIT road graph)

@@ -1,0 +1,45 @@
+<!doctype html><html><head><meta charset="utf-8"><title>PathSense demo</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+body{margin:0;font-family:system-ui,sans-serif}#map{position:absolute;inset:0 0 0 320px}
+#side{position:absolute;left:0;top:0;bottom:0;width:320px;padding:14px;box-sizing:border-box;overflow:auto;background:#fafafa;border-right:1px solid #ccc}
+h1{font-size:20px;margin:0 0 4px}small{color:#555}label{display:block;margin:10px 0 3px;font-weight:600}
+select,button{width:100%;padding:6px;font-size:14px}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+td,th{border-bottom:1px solid #ddd;padding:3px;text-align:left}.sw{display:inline-block;width:18px;height:4px;vertical-align:middle;margin-right:4px}
+.warn{background:#fff3cd;padding:6px;border-radius:4px;font-size:12px;margin:8px 0}
+@media(max-width:700px){#map{left:0;top:340px}#side{width:100%;bottom:auto;height:340px}}
+</style></head><body>
+<div id="side"><h1>PathSense</h1><small>Accessibility-aware routing from smartphone motion data</small>
+<div class="warn" id="syn" style="display:none">Demo uses <b>simulated</b> data.</div>
+<label>Mobility profile</label><select id="profile"></select>
+<label>Map layer</label><select id="layer"><option value="est">Inferred by PathSense</option><option value="true">Ground truth (simulation)</option></select>
+<p><small>Click the map to set <b>start</b>, then <b>destination</b>. Click again to restart.</small></p>
+<button id="clear">Clear</button><div id="stats"></div>
+<p><small><span class="sw" style="background:#2e9e4f"></span>accessible
+<span class="sw" style="background:#f0a020"></span>caution <span class="sw" style="background:#d63a3a"></span>blocked
+<span class="sw" style="background:#999;height:2px"></span>never observed (predicted by GCN)</small></p></div>
+<div id="map"></div>
+<script>
+const COL=["#2e9e4f","#f0a020","#d63a3a"];let M,map,edgeLayer,routeLayer,pts=[],markers=[];
+map=L.map('map');L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+function draw(){if(edgeLayer)map.removeLayer(edgeLayer);edgeLayer=L.layerGroup().addTo(map);const k=document.getElementById('layer').value;
+ const N=Object.fromEntries(M.nodes.map(n=>[n.id,n]));
+ M.edges.forEach(e=>{const a=N[e.u],b=N[e.v],c=(k==='est'?e.est:e.true).cls;
+  L.polyline([[a.lat,a.lon],[b.lat,b.lon]],{color:COL[c],weight:5,opacity:.85,dashArray:(k==='est'&&!e.observed)?'6 6':null}).bindTooltip(
+  `segment ${e.idx} · ${M.classes[c]}<br>roughness ${(k==='est'?e.est:e.true).rough.toFixed(2)} · gradient ${(k==='est'?e.est:e.true).grad.toFixed(1)}° · kerbs ${(k==='est'?e.est:e.true).kerbs}<br>${e.observed?e.n_obs+' observations':'not observed'}`).addTo(edgeLayer)})}
+function nearest(ll){let b=null,d=1e9;M.nodes.forEach(n=>{const x=(n.lat-ll.lat)**2+(n.lon-ll.lng)**2;if(x<d){d=x;b=n}});return b}
+function clear(){pts=[];markers.forEach(m=>map.removeLayer(m));markers=[];if(routeLayer)map.removeLayer(routeLayer);document.getElementById('stats').innerHTML=''}
+async function go(){const p=document.getElementById('profile').value;const r=await (await fetch(`/api/route?profile=${p}&src=${pts[0].id}&dst=${pts[1].id}`)).json();
+ if(routeLayer)map.removeLayer(routeLayer);routeLayer=L.layerGroup().addTo(map);
+ L.polyline(r.shortest.coords,{color:'#222',weight:4,dashArray:'2 8'}).addTo(routeLayer);L.polyline(r.pathsense.coords,{color:'#1565c0',weight:7,opacity:.8}).addTo(routeLayer);
+ const f=(o)=>`<td>${o.length.toFixed(0)} m</td><td>${o.blocked}</td><td>${o.kerbs}</td><td>${o.mean_rough.toFixed(2)}</td>`;
+ document.getElementById('stats').innerHTML=`<table><tr><th></th><th>Length</th><th>Blocked</th><th>Kerbs</th><th>Rough</th></tr>
+ <tr><td><span class="sw" style="background:#222"></span>Shortest</td>${f(r.shortest)}</tr><tr><td><span class="sw" style="background:#1565c0"></span>PathSense</td>${f(r.pathsense)}</tr></table>`}
+map.on('click',e=>{if(pts.length==2)clear();const n=nearest(e.latlng);pts.push(n);markers.push(L.marker([n.lat,n.lon]).addTo(map).bindTooltip(pts.length==1?'Start':'Destination',{permanent:true}));if(pts.length==2)go()});
+document.getElementById('clear').onclick=clear;document.getElementById('layer').onchange=draw;document.getElementById('profile').onchange=()=>{if(pts.length==2)go()};
+fetch('/api/map').then(r=>r.json()).then(m=>{M=m;if(m.synthetic)document.getElementById('syn').style.display='block';
+ const s=document.getElementById('profile');Object.keys(m.profiles).filter(p=>p!=='shortest').forEach(p=>s.add(new Option(p.replace('_',' '),p)));
+ const b=L.latLngBounds(m.nodes.map(n=>[n.lat,n.lon]));map.fitBounds(b);draw()});
+</script></body></html>
