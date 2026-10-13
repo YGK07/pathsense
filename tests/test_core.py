@@ -95,6 +95,23 @@ def test_osm_graph_real_geometry():
     assert c[-1] == [G.nodes[path[-1]]["lat"], G.nodes[path[-1]]["lon"]]
 
 
+def test_osm_tag_priors():
+    """Real OSM tags (surface, incline, kerb nodes) override the simulated surface attributes."""
+    from osm_fixture import fake_overpass
+    from pathsense.osm import build_graph, SURFACE_ROUGHNESS
+    from pathsense.simulate import add_surface_attributes
+    G = add_surface_attributes(build_graph(fake_overpass()))
+    E = [d for *_, d in G.edges(data=True)]
+    gravel = [d for d in E if d["osm_surface"] == "gravel"]
+    assert gravel and all(d["rough"] == SURFACE_ROUGHNESS["gravel"] and d["src"]["rough"] == "osm" for d in gravel)
+    inc = [d for d in E if d.get("osm_incline") == "10%"]
+    assert inc and all(abs(d["grad"] - 5.71) < 0.01 and d["src"]["grad"] == "osm" for d in inc)
+    kerb = [d for d in E if d["osm_kerbs"] > 0]
+    assert kerb and all(d["kerbs"] >= 1 and d["src"]["kerbs"] == "osm" for d in kerb)
+    untagged = [d for d in E if d["osm_surface"] is None]
+    assert untagged and all(d["src"]["rough"] == "simulated" for d in untagged)
+
+
 def test_pipeline_on_osm_graph(tmp_path):
     import json
     from osm_fixture import fake_overpass

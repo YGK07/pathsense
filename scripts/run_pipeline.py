@@ -39,6 +39,8 @@ def run(n_traces=None, seed=0, out="outputs", verbose=True, osm=None):
     X = obs_matrix(obs); seg = np.array([o.seg for o in obs]); con = np.array([o.contributor for o in obs])
     y = truth[seg]
     M = {"n_edges": n_edges, "n_traces": n_traces, "n_obs": len(obs)}
+    if osm:                              # how much of the "true" surface map comes from real OSM tags vs the simulator
+        M["osm_tag_prior_edges"] = {a: sum(d["src"][a] == "osm" for *_, d in G.edges(data=True)) for a in ("rough", "grad", "kerbs")}
 
     # --- F1: per-observation inference (supervised on a small labelled subset of traces) ---
     n_lab = max(int(0.2 * n_traces), 5)
@@ -114,6 +116,7 @@ def run(n_traces=None, seed=0, out="outputs", verbose=True, osm=None):
     nodes_j = [dict(id=n, x=G.nodes[n]["x"], y=G.nodes[n]["y"], lat=node_ll(n)[0], lon=node_ll(n)[1]) for n in G.nodes]
     edges_j = [dict(u=u, v=v, idx=d["idx"], length=d["length"], observed=d["observed"], n_obs=d["n_obs"],
                     geom=d.get("geom"), geom_from=d.get("geom_from"), name=d.get("name"), steps=bool(d.get("steps")),
+                    osm_surface=d.get("osm_surface"), src=d.get("src"),
                     est=d["est"], true=dict(grad=d["grad"], rough=d["rough"], kerbs=d["kerbs"], cls=d["cls"])) for u, v, d in G.edges(data=True)]
     json.dump(dict(nodes=nodes_j, edges=edges_j, profiles=PROFILES, classes=CLASSES, synthetic=True, real_geometry=bool(osm)), open(f"{out}/map.json", "w"))
     json.dump(M, open(f"{out}/metrics.json", "w"), indent=2)

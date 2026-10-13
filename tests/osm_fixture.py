@@ -21,6 +21,12 @@ def fake_overpass(nx_=14, ny_=10, step_m=55.0, seed=0):
     for i in range(0, nx_, 2):                             # N-S paths on every 2nd column
         way([node(i, j) for j in range(ny_)], highway="service", name=f"Road {i}")
     way([node(1, 1), node(1, 2)], highway="steps")         # steps (inside the grid, shares nodes)
+    way([node(7, 1), node(7, 2)], highway="footway", surface="gravel")          # real-tag priors (see test_osm_tag_priors)
+    way([node(9, 1), node(9, 2)], highway="footway", surface="asphalt", incline="10%")
+    mid = node(11, 1); k = len(nid) + 1; nid[("kerb",)] = k             # a raised-kerb node in the middle of a way
+    els.append(dict(type="node", id=k, lat=LAT0 + (1.5 - ny_ / 2) * dlat, lon=LON0 + (11 - nx_ / 2) * dlon,
+                    tags={"barrier": "kerb", "kerb": "raised"}))
+    way([mid, k, node(11, 2)], highway="footway")
     way([node(3, 3), node(3, 4)], highway="footway", foot="no")      # must be ignored
     way([node(5, 5), node(5, 6)], highway="service", access="private")   # must be ignored
     a, b = 9001, 9002                                      # disconnected island: must be dropped

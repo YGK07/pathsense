@@ -15,6 +15,32 @@ ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.s
              "https://overpass.private.coffee/api/interpreter"]
 HIGHWAYS = ("footway|path|pedestrian|steps|service|residential|living_street|unclassified|tertiary|secondary|"
             "primary|track|cycleway|road|tertiary_link|secondary_link|primary_link")
+# OSM `surface` tag -> roughness on the 0-1 field scale of docs/DATA_COLLECTION.md (0 polished tile ... 1 impassable).
+# A heuristic PRIOR from mapped tags, not a measurement; replaced by surveyed ground truth (task P4).
+SURFACE_ROUGHNESS = {
+    "asphalt": 0.15, "concrete": 0.2, "concrete:plates": 0.3, "paved": 0.2, "metal": 0.2, "wood": 0.3,
+    "paving_stones": 0.35, "sett": 0.5, "unhewn_cobblestone": 0.7, "cobblestone": 0.6, "compacted": 0.5,
+    "fine_gravel": 0.6, "gravel": 0.75, "pebblestone": 0.75, "unpaved": 0.75, "ground": 0.8, "dirt": 0.8,
+    "earth": 0.8, "mud": 0.9, "grass": 0.85, "sand": 0.9,
+}
+RAISED_KERBS = ("raised", "rolled", "yes")      # kerb=lowered/flush are NOT obstacles
+
+
+def incline_deg(tag):
+    """'10%' -> 5.71 deg, '5°' -> 5.0; 'up'/'down'/missing -> None (direction only, no magnitude)."""
+    if not tag:
+        return None
+    t = str(tag).strip().replace(" ", "")
+    try:
+        if t.endswith("%"):
+            return abs(math.degrees(math.atan(float(t[:-1]) / 100)))
+        if t.endswith("°"):
+            return abs(float(t[:-1]))
+    except ValueError:
+        pass
+    return None
+
+
 # the campus polygon as mapped in OSM (name match is case-insensitive); used to cover the WHOLE campus
 CAMPUS_NAME = "Vellore Institute of Technology"
 
@@ -77,8 +103,10 @@ def _walkable(tags):
 def build_graph(osm, lat0=None, lon0=None, min_len=2.0):
     """Overpass JSON -> undirected nx.Graph, nodes 0..n-1 with (x,y metres, lat, lon). Edges are junction-to-junction
     segments with: length (m), geom ([[lat,lon],...] following the real path), geom_from (node id geom starts at),
-    steps (bool), osm_surface, name. Only the largest connected component is kept (islands can't be routed to)."""
+    steps (bool), osm_surface, osm_incline, osm_kerbs (raised-kerb nodes on the segment), name. Only the largest connected component is kept (islands can't be routed to)."""
     nodes = {e["id"]: (e["lat"], e["lon"]) for e in osm["elements"] if e["type"] == "node"}
+    kerb_nodes = {e["id"] for e in osm["elements"] if e["type"] == "node"
+                  and e.get("tags", {}).get("kerb") in RAISED_KERBS}
     ways = [w for w in osm["elements"] if w["type"] == "way" and w.get("nodes") and _walkable(w.get("tags", {}))]
     if not ways:
         raise ValueError("no walkable ways found")
@@ -101,7 +129,8 @@ def build_graph(osm, lat0=None, lon0=None, min_len=2.0):
             if raw.has_edge(u, v) and raw[u][v]["length"] <= L:
                 continue
             raw.add_edge(u, v, length=L, geom=geom, geom_from=u, steps=tags.get("highway") == "steps",
-                         osm_surface=tags.get("surface"), name=tags.get("name"))
+                         osm_surface=tags.get("surface"), osm_incline=tags.get("incline"),
+                         osm_kerbs=sum(n in kerb_nodes for n in seg), name=tags.get("name"))
     comp = max(nx.connected_components(raw), key=len)
     raw = raw.subgraph(comp).copy()
     ids = {n: i for i, n in enumerate(raw.nodes)}

@@ -14,7 +14,7 @@ td,th{border-bottom:1px solid #ddd;padding:3px;text-align:left}.sw{display:inlin
 <div id="side"><h1>PathSense</h1><small>Accessibility-aware routing from smartphone motion data</small>
 <div class="warn" id="syn" style="display:none">Surface data (kerbs, slope, roughness) is <b>simulated</b>; path geometry is <span id="geo"></span>.</div>
 <label>Mobility profile</label><select id="profile"></select>
-<label>Map layer</label><select id="layer"><option value="est">Inferred by PathSense</option><option value="true">Ground truth (simulation)</option></select>
+<label>Map layer</label><select id="layer"><option value="est">Inferred by PathSense</option><option value="true">Ground truth (OSM tags + simulation)</option></select>
 <p><small>Click the map to set <b>start</b>, then <b>destination</b>. Click again to restart.</small></p>
 <button id="clear">Clear</button><div id="stats"></div>
 <p><small><span class="sw" style="background:#2e9e4f"></span>accessible
@@ -28,7 +28,7 @@ function draw(){if(edgeLayer)map.removeLayer(edgeLayer);edgeLayer=L.layerGroup()
  const N=Object.fromEntries(M.nodes.map(n=>[n.id,n]));
  M.edges.forEach(e=>{const a=N[e.u],b=N[e.v],c=(k==='est'?e.est:e.true).cls;
   L.polyline(e.geom||[[a.lat,a.lon],[b.lat,b.lon]],{color:COL[c],weight:4,opacity:.85,dashArray:(k==='est'&&!e.observed)?'6 6':null}).bindTooltip(
-  `segment ${e.idx} · ${M.classes[c]}<br>roughness ${(k==='est'?e.est:e.true).rough.toFixed(2)} · gradient ${(k==='est'?e.est:e.true).grad.toFixed(1)}° · kerbs ${(k==='est'?e.est:e.true).kerbs}<br>${e.observed?e.n_obs+' observations':'not observed'}`).addTo(edgeLayer)})}
+  `segment ${e.idx} · ${M.classes[c]}<br>roughness ${(k==='est'?e.est:e.true).rough.toFixed(2)} · gradient ${(k==='est'?e.est:e.true).grad.toFixed(1)}° · kerbs ${(k==='est'?e.est:e.true).kerbs}<br>${e.observed?e.n_obs+' observations':'not observed'}${e.osm_surface?'<br>OSM surface: '+e.osm_surface:''}${e.src&&k==='true'?'<br>source: '+Object.entries(e.src).map(([a,b])=>a+'='+b).join(', '):''}`).addTo(edgeLayer)})}
 function nearest(ll){let b=null,d=1e9;M.nodes.forEach(n=>{const x=(n.lat-ll.lat)**2+(n.lon-ll.lng)**2;if(x<d){d=x;b=n}});return b}
 function clear(){pts=[];markers.forEach(m=>map.removeLayer(m));markers=[];if(routeLayer)map.removeLayer(routeLayer);document.getElementById('stats').innerHTML=''}
 async function go(){const p=document.getElementById('profile').value;const r=await (await fetch(`/api/route?profile=${p}&src=${pts[0].id}&dst=${pts[1].id}`)).json();
@@ -41,5 +41,7 @@ map.on('click',e=>{if(pts.length==2)clear();const n=nearest(e.latlng);pts.push(n
 document.getElementById('clear').onclick=clear;document.getElementById('layer').onchange=draw;document.getElementById('profile').onchange=()=>{if(pts.length==2)go()};
 fetch('/api/map').then(r=>r.json()).then(m=>{M=m;if(m.synthetic){document.getElementById('syn').style.display='block';document.getElementById('geo').textContent=m.real_geometry?'real OpenStreetMap':'a FAKE grid (run scripts/fetch_osm.py)'}
  const s=document.getElementById('profile');Object.keys(m.profiles).filter(p=>p!=='shortest').forEach(p=>s.add(new Option(p.replace('_',' '),p)));
- const b=L.latLngBounds(m.nodes.map(n=>[n.lat,n.lon]));map.fitBounds(b);draw()});
+ s.value='manual_wheelchair';
+ const b=L.latLngBounds(m.nodes.map(n=>[n.lat,n.lon]));map.invalidateSize();map.fitBounds(b);draw();
+ addEventListener('resize',()=>map.invalidateSize())});
 </script></body></html>

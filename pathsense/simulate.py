@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import numpy as np, networkx as nx
 from .config import FS, G
 from .labels import label_from_attrs
+from .osm import SURFACE_ROUGHNESS, incline_deg
 
 
 def _smooth_field(rng, xs, ys, n=5, scale=120.0):
@@ -21,7 +22,10 @@ def _smooth_field(rng, xs, ys, n=5, scale=120.0):
 
 def add_surface_attributes(G, seed=0, scale_frac=0.25):
     """Give any road graph an edge `idx` plus SIMULATED ground-truth surface attributes (rough, grad, kerbs, cls).
-    Nodes need x,y in metres. Existing edge 'length' is kept; edges flagged steps=True get >=1 kerb.
+    Nodes need x,y in metres. Existing edge 'length' is kept.
+    Where OpenStreetMap has a real tag it overrides the simulated value: `osm_surface` -> roughness (SURFACE_ROUGHNESS),
+    numeric `osm_incline` -> gradient, steps=True or raised-kerb nodes (`osm_kerbs`) -> >=1 kerb.
+    edge['src'] records per attribute whether the value is 'osm' (tag-derived prior) or 'simulated'.
     Replace with real ground truth (task P4) when it exists."""
     rng = np.random.default_rng(seed)
     E = list(G.edges)
@@ -30,17 +34,24 @@ def add_surface_attributes(G, seed=0, scale_frac=0.25):
     mx = np.array([(G.nodes[u]["x"] + G.nodes[v]["x"]) / 2 for u, v in E])
     my = np.array([(G.nodes[u]["y"] + G.nodes[v]["y"]) / 2 for u, v in E])
     rough_f = _smooth_field(rng, mx, my, n=5, scale=scale_frac * ext)
-    grad_f = _smooth_field(rng, mx, my, n=3, scale=scale_frac * 1.25 * ext)
+    # narrow, sharp hills: campus is mostly flat (~85% of segments < 3 deg, ~10% 4-7 deg, ~3% > 7 deg)
+    grad_f = _smooth_field(rng, mx, my, n=3, scale=scale_frac * 0.6 * ext)
     kerb_f = _smooth_field(rng, mx, my, n=4, scale=scale_frac * 0.75 * ext)
     for k, (u, v) in enumerate(E):
         d = G[u][v].get("length") or float(np.hypot(G.nodes[u]["x"] - G.nodes[v]["x"], G.nodes[u]["y"] - G.nodes[v]["y"]))
         rough = float(np.clip(0.9 * rough_f[k] ** 1.5 + rng.normal(0, 0.04), 0, 1))
-        grad = float(np.clip(9.5 * grad_f[k] ** 2 + abs(rng.normal(0, 0.4)), 0, 12))
+        grad = float(np.clip(9.0 * grad_f[k] ** 5 + abs(rng.normal(0, 0.5)), 0, 12))
         kerbs = int(rng.poisson(0.5 * kerb_f[k] ** 2.5))
-        if G[u][v].get("steps"):
-            kerbs = max(kerbs, 1)
-        G[u][v].update(idx=k, length=float(d), rough=rough, grad=grad, kerbs=kerbs,
-                       cls=int(label_from_attrs(grad, rough, kerbs)))
+        e = G[u][v]; src = dict(rough="simulated", grad="simulated", kerbs="simulated")
+        if e.get("osm_surface") in SURFACE_ROUGHNESS:
+            rough = SURFACE_ROUGHNESS[e["osm_surface"]]; src["rough"] = "osm"
+        if incline_deg(e.get("osm_incline")) is not None:
+            grad = incline_deg(e["osm_incline"]); src["grad"] = "osm"
+        osm_k = int(e.get("osm_kerbs", 0)) + int(bool(e.get("steps")))
+        if osm_k:
+            kerbs = max(kerbs, osm_k); src["kerbs"] = "osm"
+        e.update(idx=k, length=float(d), rough=rough, grad=grad, kerbs=kerbs, src=src,
+                 cls=int(label_from_attrs(grad, rough, kerbs)))
     return G
 
 
