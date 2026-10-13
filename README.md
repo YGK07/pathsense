@@ -14,9 +14,11 @@ unreliable traces → graph propagation to segments nobody walked → accessibil
 ```bash
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python scripts/run_pipeline.py        # simulate -> infer -> fuse -> propagate -> route; writes outputs/
+python scripts/fetch_osm.py           # download the REAL campus footpaths from OpenStreetMap -> data/osm_vit.json (needs internet)
+python scripts/run_pipeline.py --osm data/osm_vit.json   # real geometry + simulated surface data -> outputs/
+# (without --osm the pipeline uses a fake grid: fine for tests, but paths cut through buildings/lake)
 python app/server.py                  # demo at http://127.0.0.1:5000  (click start + destination)
-python -m pytest -q tests             # 9 tests
+python -m pytest -q tests             # 11 tests
 ```
 Deep-learning part (functionalities 3 & 4): `pip install -r requirements-ml.txt && python scripts/train_ssl_dann.py`
 (written but **not yet run**, see HANDOFF).
@@ -38,8 +40,8 @@ Demo app: `app/` (Flask + Leaflet). Handoff/plan: `docs/HANDOFF.md`, `docs/ROADM
 
 ## Layout
 ```
-pathsense/        library (simulate, features, fusion, graph_prop, routing, ml/)
-scripts/          run_pipeline.py, train_ssl_dann.py, create_issues.sh
+pathsense/        library (osm, simulate, features, fusion, graph_prop, routing, ml/)
+scripts/          fetch_osm.py, run_pipeline.py, train_ssl_dann.py, create_issues.sh
 app/              Flask server + Leaflet front end
 tests/            pytest
 docs/             HANDOFF.md, ROADMAP.md, DATA_COLLECTION.md, paper/

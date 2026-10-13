@@ -1,6 +1,9 @@
 """End-to-end PathSense pipeline on SYNTHETIC data. Writes outputs/metrics.json and outputs/map.json (demo app).
 
     python scripts/run_pipeline.py [--traces 70] [--seed 0]
+    python scripts/run_pipeline.py --osm data/osm_vit.json     # REAL campus paths (fetch with scripts/fetch_osm.py)
+
+Only the surface data (kerbs/gradient/roughness/traces) is simulated; with --osm the geometry is real OpenStreetMap.
 
 All numbers printed here come from simulated data and are NOT research results.
 """
@@ -11,17 +14,23 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LinearRegression
 from pathsense.config import *
 from pathsense.labels import label_from_attrs
-from pathsense.simulate import make_campus_graph, make_traces
+from pathsense.simulate import make_campus_graph, add_surface_attributes, make_traces
+from pathsense.osm import load_graph
 from pathsense.features import segment_observations, obs_matrix
 from pathsense.fusion import majority_vote, dawid_skene, contributor_reliability
 from pathsense.graph_prop import propagate
 from pathsense.routing import route, path_stats
 
 
-def run(n_traces=50, seed=0, out="outputs", verbose=True):
+def run(n_traces=None, seed=0, out="outputs", verbose=True, osm=None):
     rng = np.random.default_rng(seed)
-    G = make_campus_graph(seed=seed)
+    if osm:
+        G = add_surface_attributes(load_graph(osm), seed=seed)
+    else:
+        G = make_campus_graph(seed=seed)
     n_edges = G.number_of_edges()
+    if n_traces is None:                 # enough walkers to observe a realistic share of a big real graph
+        n_traces = max(50, int(0.4 * n_edges)) if osm else 50
     truth = np.zeros(n_edges, int); T_rough = np.zeros(n_edges); T_grad = np.zeros(n_edges); T_k = np.zeros(n_edges)
     for u, v, d in G.edges(data=True):
         i = d["idx"]; truth[i] = d["cls"]; T_rough[i] = d["rough"]; T_grad[i] = d["grad"]; T_k[i] = d["kerbs"]
@@ -99,10 +108,14 @@ def run(n_traces=50, seed=0, out="outputs", verbose=True):
     # --- export for the demo app ---
     os.makedirs(out, exist_ok=True)
     def ll(x, y_): return [LAT0 + y_ / 111320.0, LON0 + x / (111320.0 * np.cos(np.deg2rad(LAT0)))]
-    nodes_j = [dict(id=n, x=G.nodes[n]["x"], y=G.nodes[n]["y"], lat=ll(G.nodes[n]["x"], G.nodes[n]["y"])[0], lon=ll(G.nodes[n]["x"], G.nodes[n]["y"])[1]) for n in G.nodes]
+    def node_ll(n):                      # real graphs carry lat/lon; the fake grid is pinned on the campus anchor
+        d = G.nodes[n]
+        return (d["lat"], d["lon"]) if "lat" in d else tuple(ll(d["x"], d["y"]))
+    nodes_j = [dict(id=n, x=G.nodes[n]["x"], y=G.nodes[n]["y"], lat=node_ll(n)[0], lon=node_ll(n)[1]) for n in G.nodes]
     edges_j = [dict(u=u, v=v, idx=d["idx"], length=d["length"], observed=d["observed"], n_obs=d["n_obs"],
+                    geom=d.get("geom"), geom_from=d.get("geom_from"), name=d.get("name"), steps=bool(d.get("steps")),
                     est=d["est"], true=dict(grad=d["grad"], rough=d["rough"], kerbs=d["kerbs"], cls=d["cls"])) for u, v, d in G.edges(data=True)]
-    json.dump(dict(nodes=nodes_j, edges=edges_j, profiles=PROFILES, classes=CLASSES, synthetic=True), open(f"{out}/map.json", "w"))
+    json.dump(dict(nodes=nodes_j, edges=edges_j, profiles=PROFILES, classes=CLASSES, synthetic=True, real_geometry=bool(osm)), open(f"{out}/map.json", "w"))
     json.dump(M, open(f"{out}/metrics.json", "w"), indent=2)
     if verbose:
         print(json.dumps(M, indent=2))
@@ -110,6 +123,6 @@ def run(n_traces=50, seed=0, out="outputs", verbose=True):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(); ap.add_argument("--traces", type=int, default=50); ap.add_argument("--seed", type=int, default=0)
+    ap = argparse.ArgumentParser(); ap.add_argument("--traces", type=int, default=None); ap.add_argument("--osm", default=None, help="Overpass JSON from scripts/fetch_osm.py"); ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default="outputs"); a = ap.parse_args()
-    run(a.traces, a.seed, a.out)
+    run(a.traces, a.seed, a.out, osm=a.osm)

@@ -1,5 +1,6 @@
 import numpy as np, sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.dirname(__file__))
 from pathsense.labels import label_from_attrs
 from pathsense.fusion import dawid_skene, majority_vote
 from pathsense.features import detect_kerbs, roughness_sigma, pitch_deg
@@ -72,3 +73,35 @@ def test_windows_do_not_span_segments():
     G = make_campus_graph(seed=0); T = make_traces(G, 15)
     X, y, dev, seg = make_windows(T, G)
     assert X.shape[1:] == (6, 100) and len(X) == len(y) == len(dev) > 100
+
+
+def test_osm_graph_real_geometry():
+    from osm_fixture import fake_overpass
+    from pathsense.osm import build_graph, edge_coords
+    from pathsense.simulate import add_surface_attributes
+    G = build_graph(fake_overpass())
+    assert G.number_of_edges() > 100
+    import networkx as nx
+    assert nx.is_connected(G)                                   # island dropped
+    assert all(d["length"] >= 2 for *_, d in G.edges(data=True))
+    assert any(d["steps"] for *_, d in G.edges(data=True))
+    assert not any(d.get("name") is None and d.get("geom") is None for *_, d in G.edges(data=True))
+    G = add_surface_attributes(G)
+    assert all(d["kerbs"] >= 1 for *_, d in G.edges(data=True) if d["steps"])
+    path = nx.shortest_path(G, 0, G.number_of_nodes() - 1, weight="length")
+    c = edge_coords(G, path)
+    assert len(c) >= len(path)                                  # follows geometry, orientation-safe
+    assert c[0] == [G.nodes[path[0]]["lat"], G.nodes[path[0]]["lon"]]
+    assert c[-1] == [G.nodes[path[-1]]["lat"], G.nodes[path[-1]]["lon"]]
+
+
+def test_pipeline_on_osm_graph(tmp_path):
+    import json
+    from osm_fixture import fake_overpass
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
+    from run_pipeline import run
+    p = tmp_path / "osm.json"; p.write_text(json.dumps(fake_overpass()))
+    M = run(osm=str(p), out=str(tmp_path / "o"), verbose=False)
+    m = json.load(open(tmp_path / "o" / "map.json"))
+    assert m["real_geometry"] and all(e["geom"] for e in m["edges"])
+    assert 0.1 < M["coverage"] < 1.0 and M["map_class_acc_all_segments"] > 0.4

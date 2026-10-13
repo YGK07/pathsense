@@ -23,7 +23,7 @@ Team: George C Mathew (coordinator), Yohan George, Siddhant Gaddi. School: SCOPE
 |---|---|
 | Simulator, features, fusion, GCN, routing, pipeline, Flask+Leaflet demo | **built, 9 tests pass, pipeline runs end to end** |
 | `scripts/train_ssl_dann.py`, `pathsense/ml/models.py` (PyTorch) | **written but never executed** (author's sandbox had no torch). Expect small bugs. Task M1 |
-| Real data, map matching, OSM graph, Android app, real evaluation | **not started** |
+| Real data, map matching, Android app, real evaluation | **not started** |
 | Paper | draft in Springer-style docx; Results TBD; author block emails + Authors' contributions TBD |
 
 Simulated-data findings worth knowing (seed 0, `python scripts/run_pipeline.py`):

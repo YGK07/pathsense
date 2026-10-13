@@ -19,8 +19,33 @@ def _smooth_field(rng, xs, ys, n=5, scale=120.0):
     return f / f.max()
 
 
+def add_surface_attributes(G, seed=0, scale_frac=0.25):
+    """Give any road graph an edge `idx` plus SIMULATED ground-truth surface attributes (rough, grad, kerbs, cls).
+    Nodes need x,y in metres. Existing edge 'length' is kept; edges flagged steps=True get >=1 kerb.
+    Replace with real ground truth (task P4) when it exists."""
+    rng = np.random.default_rng(seed)
+    E = list(G.edges)
+    xs = np.array([G.nodes[n]["x"] for n in G.nodes]); ys = np.array([G.nodes[n]["y"] for n in G.nodes])
+    ext = max(np.ptp(xs), np.ptp(ys), 1.0)
+    mx = np.array([(G.nodes[u]["x"] + G.nodes[v]["x"]) / 2 for u, v in E])
+    my = np.array([(G.nodes[u]["y"] + G.nodes[v]["y"]) / 2 for u, v in E])
+    rough_f = _smooth_field(rng, mx, my, n=5, scale=scale_frac * ext)
+    grad_f = _smooth_field(rng, mx, my, n=3, scale=scale_frac * 1.25 * ext)
+    kerb_f = _smooth_field(rng, mx, my, n=4, scale=scale_frac * 0.75 * ext)
+    for k, (u, v) in enumerate(E):
+        d = G[u][v].get("length") or float(np.hypot(G.nodes[u]["x"] - G.nodes[v]["x"], G.nodes[u]["y"] - G.nodes[v]["y"]))
+        rough = float(np.clip(0.9 * rough_f[k] ** 1.5 + rng.normal(0, 0.04), 0, 1))
+        grad = float(np.clip(9.5 * grad_f[k] ** 2 + abs(rng.normal(0, 0.4)), 0, 12))
+        kerbs = int(rng.poisson(0.5 * kerb_f[k] ** 2.5))
+        if G[u][v].get("steps"):
+            kerbs = max(kerbs, 1)
+        G[u][v].update(idx=k, length=float(d), rough=rough, grad=grad, kerbs=kerbs,
+                       cls=int(label_from_attrs(grad, rough, kerbs)))
+    return G
+
+
 def make_campus_graph(nx_=9, ny_=7, spacing=60.0, seed=0, drop=0.12):
-    """Jittered grid road network with spatially smooth ground-truth surface attributes."""
+    """Jittered grid road network (FAKE geometry) -- only for tests/offline demo. Use pathsense.osm for real paths."""
     rng = np.random.default_rng(seed)
     G0 = nx.grid_2d_graph(nx_, ny_)
     pos = {n: (n[0] * spacing + rng.normal(0, spacing * .12), n[1] * spacing + rng.normal(0, spacing * .12)) for n in G0}
@@ -28,28 +53,14 @@ def make_campus_graph(nx_=9, ny_=7, spacing=60.0, seed=0, drop=0.12):
     G = nx.Graph()
     for n, i in ids.items():
         G.add_node(i, x=pos[n][0], y=pos[n][1])
-    edges = list(G0.edges)
-    for u, v in edges:
+    for u, v in G0.edges:
         G.add_edge(ids[u], ids[v])
     for u, v in list(G.edges):                         # randomly drop edges, keep connectivity
         if rng.random() < drop:
             G.remove_edge(u, v)
             if not nx.is_connected(G):
                 G.add_edge(u, v)
-    E = list(G.edges)
-    mx = np.array([(G.nodes[u]["x"] + G.nodes[v]["x"]) / 2 for u, v in E])
-    my = np.array([(G.nodes[u]["y"] + G.nodes[v]["y"]) / 2 for u, v in E])
-    rough_f = _smooth_field(rng, mx, my)
-    grad_f = _smooth_field(rng, mx, my, n=3, scale=150.0)
-    kerb_f = _smooth_field(rng, mx, my, n=4, scale=90.0)
-    for k, (u, v) in enumerate(E):
-        d = float(np.hypot(G.nodes[u]["x"] - G.nodes[v]["x"], G.nodes[u]["y"] - G.nodes[v]["y"]))
-        rough = float(np.clip(0.9 * rough_f[k] ** 1.5 + rng.normal(0, 0.04), 0, 1))
-        grad = float(np.clip(9.5 * grad_f[k] ** 2 + abs(rng.normal(0, 0.4)), 0, 12))
-        kerbs = int(rng.poisson(0.5 * kerb_f[k] ** 2.5))
-        G[u][v].update(idx=k, length=d, rough=rough, grad=grad, kerbs=kerbs,
-                       cls=int(label_from_attrs(grad, rough, kerbs)))
-    return G
+    return add_surface_attributes(G, seed=seed)
 
 
 @dataclass

@@ -7,6 +7,7 @@ from flask import Flask, jsonify, request, send_from_directory
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from pathsense.routing import route, path_stats
 from pathsense.config import PROFILES
+from pathsense.osm import edge_coords
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), "static"))
@@ -20,15 +21,16 @@ def build_graph(m):
     for e in m["edges"]:
         t = e["true"]
         G.add_edge(e["u"], e["v"], idx=e["idx"], length=e["length"], est=e["est"], observed=e["observed"],
-                   grad=t["grad"], rough=t["rough"], kerbs=t["kerbs"], cls=t["cls"])
+                   grad=t["grad"], rough=t["rough"], kerbs=t["kerbs"], cls=t["cls"],
+                   geom=e.get("geom"), geom_from=e.get("geom_from"))
     return G
 
 
 G = build_graph(MAP)
 
 
-def coords(path):
-    return [[G.nodes[n]["lat"], G.nodes[n]["lon"]] for n in path]
+def coords(path):          # follows the real path geometry when the map came from OSM
+    return edge_coords(G, path)
 
 
 @app.get("/")

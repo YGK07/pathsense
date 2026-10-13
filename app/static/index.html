@@ -12,7 +12,7 @@ td,th{border-bottom:1px solid #ddd;padding:3px;text-align:left}.sw{display:inlin
 @media(max-width:700px){#map{left:0;top:340px}#side{width:100%;bottom:auto;height:340px}}
 </style></head><body>
 <div id="side"><h1>PathSense</h1><small>Accessibility-aware routing from smartphone motion data</small>
-<div class="warn" id="syn" style="display:none">Demo uses <b>simulated</b> data.</div>
+<div class="warn" id="syn" style="display:none">Surface data (kerbs, slope, roughness) is <b>simulated</b>; path geometry is <span id="geo"></span>.</div>
 <label>Mobility profile</label><select id="profile"></select>
 <label>Map layer</label><select id="layer"><option value="est">Inferred by PathSense</option><option value="true">Ground truth (simulation)</option></select>
 <p><small>Click the map to set <b>start</b>, then <b>destination</b>. Click again to restart.</small></p>
@@ -23,11 +23,11 @@ td,th{border-bottom:1px solid #ddd;padding:3px;text-align:left}.sw{display:inlin
 <div id="map"></div>
 <script>
 const COL=["#2e9e4f","#f0a020","#d63a3a"];let M,map,edgeLayer,routeLayer,pts=[],markers=[];
-map=L.map('map');L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+map=L.map('map',{preferCanvas:true});L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
 function draw(){if(edgeLayer)map.removeLayer(edgeLayer);edgeLayer=L.layerGroup().addTo(map);const k=document.getElementById('layer').value;
  const N=Object.fromEntries(M.nodes.map(n=>[n.id,n]));
  M.edges.forEach(e=>{const a=N[e.u],b=N[e.v],c=(k==='est'?e.est:e.true).cls;
-  L.polyline([[a.lat,a.lon],[b.lat,b.lon]],{color:COL[c],weight:5,opacity:.85,dashArray:(k==='est'&&!e.observed)?'6 6':null}).bindTooltip(
+  L.polyline(e.geom||[[a.lat,a.lon],[b.lat,b.lon]],{color:COL[c],weight:4,opacity:.85,dashArray:(k==='est'&&!e.observed)?'6 6':null}).bindTooltip(
   `segment ${e.idx} · ${M.classes[c]}<br>roughness ${(k==='est'?e.est:e.true).rough.toFixed(2)} · gradient ${(k==='est'?e.est:e.true).grad.toFixed(1)}° · kerbs ${(k==='est'?e.est:e.true).kerbs}<br>${e.observed?e.n_obs+' observations':'not observed'}`).addTo(edgeLayer)})}
 function nearest(ll){let b=null,d=1e9;M.nodes.forEach(n=>{const x=(n.lat-ll.lat)**2+(n.lon-ll.lng)**2;if(x<d){d=x;b=n}});return b}
 function clear(){pts=[];markers.forEach(m=>map.removeLayer(m));markers=[];if(routeLayer)map.removeLayer(routeLayer);document.getElementById('stats').innerHTML=''}
@@ -39,7 +39,7 @@ async function go(){const p=document.getElementById('profile').value;const r=awa
  <tr><td><span class="sw" style="background:#222"></span>Shortest</td>${f(r.shortest)}</tr><tr><td><span class="sw" style="background:#1565c0"></span>PathSense</td>${f(r.pathsense)}</tr></table>`}
 map.on('click',e=>{if(pts.length==2)clear();const n=nearest(e.latlng);pts.push(n);markers.push(L.marker([n.lat,n.lon]).addTo(map).bindTooltip(pts.length==1?'Start':'Destination',{permanent:true}));if(pts.length==2)go()});
 document.getElementById('clear').onclick=clear;document.getElementById('layer').onchange=draw;document.getElementById('profile').onchange=()=>{if(pts.length==2)go()};
-fetch('/api/map').then(r=>r.json()).then(m=>{M=m;if(m.synthetic)document.getElementById('syn').style.display='block';
+fetch('/api/map').then(r=>r.json()).then(m=>{M=m;if(m.synthetic){document.getElementById('syn').style.display='block';document.getElementById('geo').textContent=m.real_geometry?'real OpenStreetMap':'a FAKE grid (run scripts/fetch_osm.py)'}
  const s=document.getElementById('profile');Object.keys(m.profiles).filter(p=>p!=='shortest').forEach(p=>s.add(new Option(p.replace('_',' '),p)));
  const b=L.latLngBounds(m.nodes.map(n=>[n.lat,n.lon]));map.fitBounds(b);draw()});
 </script></body></html>

@@ -5,6 +5,7 @@ so it runs anywhere and is unit-tested. A PyTorch / GAT version lives in pathsen
 (task G2). Targets are continuous per-segment attributes [roughness, gradient, kerb rate].
 """
 import numpy as np, networkx as nx
+import scipy.sparse as sp
 
 
 def norm_adj(Gline, order):
@@ -21,17 +22,17 @@ class GCN:
         self.m = {k: 0 for k in "W1 b1 W2 b2".split()}; self.v = {k: 0 for k in self.m}; self.t = 0
 
     def forward(self, A, X):
-        self.AX = A @ X
+        self.AX = np.asarray(A @ X)
         self.Z1 = self.AX @ self.W1 + self.b1
         self.H1 = np.maximum(self.Z1, 0)
-        self.AH = A @ self.H1
+        self.AH = np.asarray(A @ self.H1)
         return self.AH @ self.W2 + self.b2
 
     def step(self, A, Y, T, mask, lr=0.01):
         n = max(mask.sum(), 1)
         dY = 2 * (Y - T) * mask[:, None] / n
         g = {"W2": self.AH.T @ dY, "b2": dY.sum(0)}
-        dZ1 = (A @ (dY @ self.W2.T)) * (self.Z1 > 0)
+        dZ1 = np.asarray(A @ (dY @ self.W2.T)) * (self.Z1 > 0)
         g["W1"] = self.AX.T @ dZ1; g["b1"] = dZ1.sum(0)
         self.t += 1
         for k, gr in g.items():                                # Adam
@@ -46,12 +47,15 @@ def propagate(G, est, observed, epochs=600, hide=0.25, seed=0):
     n = G.number_of_edges()
     key = {G[u][v]["idx"]: (u, v) for u, v in G.edges}
     Lg = nx.line_graph(G)
-    # adjacency indexed by edge idx
-    A_idx = np.zeros((n, n))
+    # sparse symmetric-normalised adjacency indexed by edge idx (real campus graphs have thousands of segments)
+    r, c = [], []
     for a, b in Lg.edges:
         i, j = G[a[0]][a[1]]["idx"], G[b[0]][b[1]]["idx"]
-        A_idx[i, j] = A_idx[j, i] = 1
-    A_idx += np.eye(n); d = A_idx.sum(1); A = A_idx / np.sqrt(d[:, None] * d[None, :])
+        r += [i, j]; c += [j, i]
+    A_idx = sp.coo_matrix((np.ones(len(r)), (r, c)), shape=(n, n)).tocsr()
+    A_idx.data[:] = 1.0
+    A_idx = A_idx + sp.eye(n, format="csr"); d = np.asarray(A_idx.sum(1)).ravel()
+    A = sp.diags(d ** -0.5) @ A_idx @ sp.diags(d ** -0.5)
     mid = np.array([[(G.nodes[key[i][0]]["x"] + G.nodes[key[i][1]]["x"]) / 2,
                      (G.nodes[key[i][0]]["y"] + G.nodes[key[i][1]]["y"]) / 2] for i in range(n)])
     mid = (mid - mid.mean(0)) / mid.std(0)
