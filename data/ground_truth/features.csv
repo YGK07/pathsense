@@ -1,1 +1,6 @@
 feature_id,route_id,type,lat,lon,landmark,height_cm,has_ramp_alternative,photo,recorded_by,notes
+f001,r01,kerb,,,Outside Fitty gym (slope next to it - measure),20,unknown,,c01,Reported from walk 2026-10-15; position to be pinned on survey walk
+f002,r01,kerb,,,Side footpath near Watson Road / M Block (up when going gym->L Block),10,unknown,,c01,Reported 2026-10-15
+f003,r01,kerb,,,Same footpath after M Block (down when going gym->L Block),10,unknown,,c01,Reported 2026-10-15
+f004,r01,kerb,,,Onto footpath towards L Block (up when going gym->L Block),10,unknown,,c01,Reported 2026-10-15; footpath then cuts on/off for the roadway several times at the same ~10 cm height (count unknown)
+f005,r01,kerb,,,Final kerb at L Block (down when going gym->L Block),10,unknown,,c01,Reported 2026-10-15

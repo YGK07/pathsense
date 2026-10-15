@@ -112,6 +112,66 @@ def test_osm_tag_priors():
     assert untagged and all(d["src"]["rough"] == "simulated" for d in untagged)
 
 
+def _fixture_walk(tmp_path, as_zip=False):
+    from osm_fixture import fake_overpass
+    from pathsense.osm import build_graph
+    import sensorlogger_fixture as slf
+    G = build_graph(fake_overpass())
+    u, v = next((u, v) for u, v, d in G.edges(data=True) if d["length"] > 40)   # walk starts on a real path
+    lat, lon = G.nodes[u]["lat"], G.nodes[u]["lon"]
+    p = tmp_path / ("walk.zip" if as_zip else "walk")
+    slf.write(str(p), lat, lon, as_zip=as_zip)
+    return G, str(p), slf
+
+
+def test_sensor_logger_loader_folder_and_zip(tmp_path):
+    from pathsense.io import load_recording
+    for as_zip in (False, True):
+        _, p, _ = _fixture_walk(tmp_path, as_zip)
+        r = load_recording(p)
+        assert abs(r.fs - 100) < 1 and r.acc.shape == r.grav.shape == r.gyro.shape
+        assert abs(np.median(r.grav[:, 2]) - 9.8) < 0.01                       # gravity interpolated onto accel clock
+        assert r.platform == "ios" and len(r.gps) > 20 and r.ann_labels[-1] == "down"
+
+
+def test_sync_presses_align_annotation_clock(tmp_path):
+    from pathsense.io import load_recording, align_annotations, kerb_presses
+    _, p, slf = _fixture_walk(tmp_path)
+    r = load_recording(p)
+    off, conf = align_annotations(r)
+    assert off is not None and abs(off - slf.TAPS[0]) < 0.05 and conf > 3
+    (t, lab), = kerb_presses(r, off)                                            # sync presses removed
+    assert lab == "down" and abs(t - (slf.KERB_DOWN + slf.PRESS_LAG)) < 0.05
+
+
+def test_real_walk_events_and_trace(tmp_path):
+    from pathsense.io import load_recording, detect_events, to_trace, walking_window
+    G, p, slf = _fixture_walk(tmp_path)
+    r = load_recording(p)
+    a, b = walking_window(r)
+    assert a < 10 and b > 26
+    ev = detect_events(r)
+    assert any(abs(e["t"] - slf.KERB_DOWN) < 0.3 for e in ev)                  # the kerb, not the sync taps
+    assert not any(abs(e["t"] - c) < 0.5 for e in ev for c in slf.TAPS)
+    tr = to_trace(r, G, device=1, contributor=2)
+    assert abs(np.median(tr.acc[:, 2]) - 9.8) < 0.3                             # pipeline frame: z up
+    walked = tr.seg[tr.seg >= 0]
+    assert len(walked) > 0.5 * len(tr.seg) and len(set(walked.tolist())) >= 1
+
+
+def test_process_walks_writes_layer(tmp_path):
+    import json
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
+    from process_walks import process
+    from osm_fixture import fake_overpass
+    G, p, _ = _fixture_walk(tmp_path)
+    osm = tmp_path / "osm.json"; osm.write_text(json.dumps(fake_overpass()))
+    out = process([p], str(osm), str(tmp_path / "real.json"), contributors={})
+    m = json.load(open(tmp_path / "real.json"))
+    assert len(m["walks"]) == 1 and m["walks"][0]["sync_ok"] and m["walks"][0]["labelled"][0]["label"] == "down"
+    assert m["walks"][0]["track"] and out["n_walks"] == 1
+
+
 def test_pipeline_on_osm_graph(tmp_path):
     import json
     from osm_fixture import fake_overpass

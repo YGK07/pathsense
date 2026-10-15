@@ -1,1 +1,2 @@
 stretch_id,route_id,start_lat,start_lon,end_lat,end_lon,start_landmark,end_landmark,surface,gradient_deg,uphill_towards,roughness_rater1,roughness_rater2,photo,notes
+s001,r01,,,,,Just before the final kerb at L Block,Final kerb at L Block,unpaved dirt,,,,,,Reported 2026-10-15 as quite uneven; length and roughness scores to be filled on survey walk

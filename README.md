@@ -17,8 +17,9 @@ pip install -r requirements.txt
 python scripts/fetch_osm.py           # download the REAL campus footpaths from OpenStreetMap -> data/osm_vit.json (needs internet)
 python scripts/run_pipeline.py --osm data/osm_vit.json   # real geometry + simulated surface data -> outputs/
 # (without --osm the pipeline uses a fake grid: fine for tests, but paths cut through buildings/lake)
-python app/server.py                  # demo at http://127.0.0.1:5000  (click start + destination)
-python -m pytest -q tests             # 11 tests
+python scripts/process_walks.py      # REAL Sensor Logger walks in data/raw/ -> "Real walks" layer (optional)
+python app/server.py                  # demo at http://127.0.0.1:5000  (click start + destination; "Add a walk" uploads one)
+python -m pytest -q tests             # 16 tests
 ```
 Deep-learning part (functionalities 3 & 4): `pip install -r requirements-ml.txt && python scripts/train_ssl_dann.py`
 (written but **not yet run**, see HANDOFF).

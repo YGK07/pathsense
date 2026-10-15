@@ -9,6 +9,9 @@ h1{font-size:20px;margin:0 0 4px}small{color:#555}label{display:block;margin:10p
 select,button{width:100%;padding:6px;font-size:14px}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
 td,th{border-bottom:1px solid #ddd;padding:3px;text-align:left}.sw{display:inline-block;width:18px;height:4px;vertical-align:middle;margin-right:4px}
 .warn{background:#fff3cd;padding:6px;border-radius:4px;font-size:12px;margin:8px 0}
+.real{background:#eef4ff;padding:8px;border-radius:4px;font-size:12px;margin:10px 0}.real label{font-weight:400;margin:4px 0}
+.real input[type=text],.real select{width:100%;box-sizing:border-box;padding:4px;font-size:13px}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:3px}
+#upmsg{margin-top:4px}details summary{cursor:pointer;font-weight:600;margin-top:6px}
 @media(max-width:700px){#map{left:0;top:340px}#side{width:100%;bottom:auto;height:340px}}
 </style></head><body>
 <div id="side"><h1>PathSense</h1><small>Accessibility-aware routing from smartphone motion data</small>
@@ -19,16 +22,43 @@ td,th{border-bottom:1px solid #ddd;padding:3px;text-align:left}.sw{display:inlin
 <button id="clear">Clear</button><div id="stats"></div>
 <p><small><span class="sw" style="background:#2e9e4f"></span>accessible
 <span class="sw" style="background:#f0a020"></span>caution <span class="sw" style="background:#d63a3a"></span>blocked
-<span class="sw" style="background:#999;height:2px"></span>never observed (predicted by GCN)</small></p></div>
+<span class="sw" style="background:#999;height:2px"></span>never observed (predicted by GCN)</small></p>
+<div class="real"><b>Real walks (pilot data)</b>
+<label><input type="checkbox" id="realchk" checked> Show recorded walks</label>
+<div id="realsum">No real walks processed yet (run scripts/process_walks.py).</div>
+<div style="margin-top:6px"><span class="sw" style="background:#6a3d9a"></span>walk by c01 <span class="sw" style="background:#00897b"></span>walk by c02<br><span class="dot" style="background:#d63a3a;border:2px solid #7a1010"></span>kerb-like jolt found in 2+ walks
+<br><span class="dot" style="background:#bbb"></span>jolt found in one walk only
+<br>&#9650; / &#9660; kerb step up / down marked by the walker (filled = detector found it)</div>
+<details><summary>Add a walk</summary>
+<small>Record with Sensor Logger (Gravity on), export as Zipped CSV, upload here. Start with 3 firm presses of the Annotation button.</small>
+<form id="upform"><input type="file" name="file" accept=".zip" required>
+<label>Contributor id</label><input type="text" name="contributor" placeholder="c03" pattern="c[0-9]{2,3}" required>
+<label>Phone carried</label><select name="carry"><option value="hand">in hand</option><option value="pocket">in pocket</option></select>
+<button type="submit" style="margin-top:6px">Upload and update map</button></form><div id="upmsg"></div></details></div></div>
 <div id="map"></div>
 <script>
-const COL=["#2e9e4f","#f0a020","#d63a3a"];let M,map,edgeLayer,routeLayer,pts=[],markers=[];
+const COL=["#2e9e4f","#f0a020","#d63a3a"];let M,R,map,edgeLayer,routeLayer,realLayer,pts=[],markers=[];
+const WALKER={c01:'#6a3d9a',c02:'#00897b'};
 map=L.map('map',{preferCanvas:true});L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
 function draw(){if(edgeLayer)map.removeLayer(edgeLayer);edgeLayer=L.layerGroup().addTo(map);const k=document.getElementById('layer').value;
  const N=Object.fromEntries(M.nodes.map(n=>[n.id,n]));
  M.edges.forEach(e=>{const a=N[e.u],b=N[e.v],c=(k==='est'?e.est:e.true).cls;
   L.polyline(e.geom||[[a.lat,a.lon],[b.lat,b.lon]],{color:COL[c],weight:4,opacity:.85,dashArray:(k==='est'&&!e.observed)?'6 6':null}).bindTooltip(
-  `segment ${e.idx} · ${M.classes[c]}<br>roughness ${(k==='est'?e.est:e.true).rough.toFixed(2)} · gradient ${(k==='est'?e.est:e.true).grad.toFixed(1)}° · kerbs ${(k==='est'?e.est:e.true).kerbs}<br>${e.observed?e.n_obs+' observations':'not observed'}${e.osm_surface?'<br>OSM surface: '+e.osm_surface:''}${e.src&&k==='true'?'<br>source: '+Object.entries(e.src).map(([a,b])=>a+'='+b).join(', '):''}`).addTo(edgeLayer)})}
+  `segment ${e.idx} · ${M.classes[c]}<br>roughness ${(k==='est'?e.est:e.true).rough.toFixed(2)} · gradient ${(k==='est'?e.est:e.true).grad.toFixed(1)}° · kerbs ${(k==='est'?e.est:e.true).kerbs}<br>${e.observed?e.n_obs+' observations':'not observed'}${e.osm_surface?'<br>OSM surface: '+e.osm_surface:''}${e.src&&k==='true'?'<br>source: '+Object.entries(e.src).map(([a,b])=>a+'='+b).join(', '):''}`).addTo(edgeLayer)});drawReal()}
+function drawReal(){if(realLayer)map.removeLayer(realLayer);if(!R||!document.getElementById('realchk').checked)return;realLayer=L.layerGroup().addTo(map);
+ R.walks.forEach(w=>{const c=WALKER[w.contributor]||'#555';
+  L.polyline(w.track,{color:c,weight:4,opacity:.9,dashArray:'2 6'}).bindTooltip(`walk by ${w.contributor} (${w.device}, ${w.carry}) · ${w.length_m} m`).addTo(realLayer);
+  w.labelled.forEach(p=>L.marker([p.lat,p.lon],{icon:L.divIcon({className:'',iconSize:[14,14],html:`<span style="font-size:14px;color:${c};${p.detected?'':'opacity:.55'}">${p.label==='up'?(p.detected?'&#9650;':'&#9651;'):(p.detected?'&#9660;':'&#9661;')}</span>`})})
+   .bindTooltip(`${w.contributor} marked kerb step ${p.label} at ${p.t.toFixed(1)} s<br>${p.detected?'detector found a jolt here':'detector missed it'}`).addTo(realLayer))});
+ R.clusters.forEach(c=>L.circleMarker([c.lat,c.lon],{radius:c.confirmed?7:4,color:c.confirmed?'#7a1010':'#888',weight:c.confirmed?2:1,fillColor:c.confirmed?'#d63a3a':'#bbb',fillOpacity:.85})
+  .bindTooltip(`kerb-like jolt<br>found in ${c.n_walks} walk${c.n_walks>1?'s':''} (${c.n_events} detections)`).addTo(realLayer));
+ const S=R.summary;document.getElementById('realsum').innerHTML=`${S.n_walks} walks · ${S.n_contributors} contributors · ${S.n_devices} phones · ${S.total_km} km<br>
+ ${S.edges_walked} path segments walked · <b>${S.confirmed_clusters}</b> jolt spots confirmed by 2+ walks${S.labelled_up+S.labelled_down?`<br>Detector vs marked kerbs: ${S.found_down}/${S.labelled_down} steps down, ${S.found_up}/${S.labelled_up} steps up`:''}`}
+async function loadReal(){R=await (await fetch('/api/real')).json();if(R.walks&&R.walks.length)drawReal()}
+document.getElementById('realchk').onchange=drawReal;
+document.getElementById('upform').onsubmit=async e=>{e.preventDefault();const msg=document.getElementById('upmsg');msg.textContent='Processing... (takes a few seconds)';
+ const r=await fetch('/api/upload',{method:'POST',body:new FormData(e.target)});const j=await r.json();
+ if(!r.ok){msg.textContent=j.error;return}msg.textContent=`Added. Now ${j.summary.n_walks} walks, ${j.summary.confirmed_clusters} confirmed jolt spots.`;e.target.reset();loadReal()};
 function nearest(ll){let b=null,d=1e9;M.nodes.forEach(n=>{const x=(n.lat-ll.lat)**2+(n.lon-ll.lng)**2;if(x<d){d=x;b=n}});return b}
 function clear(){pts=[];markers.forEach(m=>map.removeLayer(m));markers=[];if(routeLayer)map.removeLayer(routeLayer);document.getElementById('stats').innerHTML=''}
 async function go(){const p=document.getElementById('profile').value;const r=await (await fetch(`/api/route?profile=${p}&src=${pts[0].id}&dst=${pts[1].id}`)).json();
@@ -43,5 +73,5 @@ fetch('/api/map').then(r=>r.json()).then(m=>{M=m;if(m.synthetic){document.getEle
  const s=document.getElementById('profile');Object.keys(m.profiles).filter(p=>p!=='shortest').forEach(p=>s.add(new Option(p.replace('_',' '),p)));
  s.value='manual_wheelchair';
  const b=L.latLngBounds(m.nodes.map(n=>[n.lat,n.lon]));map.invalidateSize();map.fitBounds(b);draw();
- addEventListener('resize',()=>map.invalidateSize())});
+ addEventListener('resize',()=>map.invalidateSize());loadReal()});
 </script></body></html>

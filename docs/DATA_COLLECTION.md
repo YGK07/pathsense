@@ -97,11 +97,13 @@ Walk the route slowly and fill **`data/ground_truth/features.csv`** (one row per
 1. Phone mounted, GPS on, wait outdoors until Location shows `horizontalAccuracy` **≤ 10 m** (usually 30–60 s).
 2. **Calibration:** stand still on flat ground holding the phone in the walking grip, press Start, stay perfectly still for **10 s**
    (gives mount tilt + sensor bias).
-3. **Sync mark:** three hard taps on the back of the phone (both phones if carrying two), a second apart. Add an
-   Annotation "start".
-4. Walk the route at a **steady normal pace (~1 m/s)**. Do not stop to look at the phone. If you must stop, stand still and
-   add an Annotation ("stop – traffic").
-5. At the end: three sync taps again, Annotation "end", 10 s still, Stop.
+3. **Sync mark:** press the **Annotation button** firmly three times, about a second apart (both phones if carrying
+   two). Sensor Logger stamps annotations with a different clock from the sensors; these three presses also show up as
+   jolts, which is how `pathsense/io.py` lines the two clocks up. Soft presses don't register: press as if knocking.
+4. Walk the route at a **steady normal pace (~1 m/s)** and **step** onto and off kerbs normally (don't jump). Press
+   **My Annotation 1** right after stepping **up** a kerb and **My Annotation 2** right after stepping **down**. Do not
+   otherwise look at the phone.
+5. At the end: three firm Annotation presses again, 10 s still, Stop.
 6. Immediately fill one row in **`data/runs_log.csv`** (template in `data/templates/`), including anything odd.
 
 Repeat each route **≥3 times**, ideally by **different people with different phones**, and in **both directions** for slopes.
@@ -133,7 +135,13 @@ Ground-truth CSVs contain no personal data and should be committed so everyone u
 - [ ] Median `horizontalAccuracy` ≤ 10 m.
 - [ ] `runs_log.csv` row filled; ground truth exists for the route.
 
-## 9. What happens next in code
+## 9. Adding a walk
+Either drop the exported zip (or its unzipped folder) into `data/raw/` and run `python scripts/process_walks.py`, or use
+**Add a walk** in the demo (`python app/server.py`), which stores the zip under `data/raw/uploads/` and rebuilds the
+"Real walks" layer. Contributor ids (`c01`, `c02` ...) are set per phone in `data/raw/contributors.csv`
+(`device,contributor`) or typed in the upload form. Never use names.
+
+## 10. What happens next in code
 - **P2** `pathsense/io.py` reads a run folder → resamples accel+gravity+gyro to `config.FS` → remaps axes → returns a `Trace`.
 - **P3** map matching snaps GPS to OSM segments → fills `Trace.seg`.
 - **P4** `pathsense/groundtruth.py` converts `features.csv`/`stretches.csv` into per-segment `rough/grad/kerbs/cls`.
