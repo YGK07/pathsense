@@ -172,6 +172,52 @@ def test_process_walks_writes_layer(tmp_path):
     assert m["walks"][0]["track"] and out["n_walks"] == 1
 
 
+def test_confirmed_real_kerbs_steer_routing():
+    """A kerb spot confirmed by real walks is put on its nearest segment and the wheelchair route avoids it."""
+    from osm_fixture import fake_overpass
+    from pathsense.osm import build_graph
+    from pathsense.simulate import add_surface_attributes
+    from pathsense.routing import mark_real_kerbs
+    import networkx as nx
+    G = add_surface_attributes(build_graph(fake_overpass()), seed=0)
+    for *_, d in G.edges(data=True):                     # flat, kerb-free estimated map: only real spots matter
+        d["est"] = dict(grad=0.0, rough=0.0, kerbs=0, cls=0)
+    a, b = 0, G.number_of_nodes() - 1
+    sp = route(G, a, b, "shortest", "est")
+    u, v = sp[len(sp) // 2], sp[len(sp) // 2 + 1]           # a spot in the middle of the shortest path
+    g = G[u][v]["geom"]; mid = g[len(g) // 2] if len(g) > 2 else [(g[0][0] + g[-1][0]) / 2, (g[0][1] + g[-1][1]) / 2]
+    marked = mark_real_kerbs(G, [dict(lat=mid[0], lon=mid[1], n_walks=3, confirmed=True),
+                                 dict(lat=mid[0] + 0.01, lon=mid[1], n_walks=1, confirmed=False)])
+    assert marked == [G[u][v]["idx"]]                        # unconfirmed / far-away spots are ignored
+    assert G[u][v]["real_kerbs"] == 1 and G[u][v]["est"]["kerbs"] >= 1
+    pe = route(G, a, b, "manual_wheelchair", "est")
+    assert path_stats(G, sp)["real_kerbs"] == 1 and path_stats(G, pe)["real_kerbs"] == 0
+
+
+def test_reported_steps_block_route_and_walked_share():
+    """Steps reported by a walker (ground-truth sheet with a position) block that segment for wheelchairs; path_stats
+    reports how much of a route real walks actually covered, so '0 kerbs found' on an unwalked route isn't misread."""
+    from osm_fixture import fake_overpass
+    from pathsense.osm import build_graph
+    from pathsense.simulate import add_surface_attributes
+    from pathsense.routing import mark_reported
+    G = add_surface_attributes(build_graph(fake_overpass()), seed=0)
+    for *_, d in G.edges(data=True):
+        d["est"] = dict(grad=0.0, rough=0.0, kerbs=0, cls=0)
+    a, b = 0, G.number_of_nodes() - 1
+    sp = route(G, a, b, "manual_wheelchair", "est")
+    u, v = sp[1], sp[2]; g = G[u][v]["geom"]
+    mid = [(g[0][0] + g[-1][0]) / 2, (g[0][1] + g[-1][1]) / 2]
+    marked = mark_reported(G, [dict(type="steps", lat=mid[0], lon=mid[1], landmark="subway exit"),
+                               dict(type="kerb", lat="", lon="", landmark="no position yet")])
+    assert marked == [G[u][v]["idx"]] and G[u][v]["est"]["cls"] == 2 and G[u][v]["reported"] == ["steps: subway exit"]
+    pe = route(G, a, b, "manual_wheelchair", "est")
+    assert path_stats(G, sp)["reported"] == 1 and path_stats(G, pe)["reported"] == 0
+    G[u][v]["walks"] = 2                                         # one walked segment
+    s = path_stats(G, sp)
+    assert 0 < s["walked_frac"] < 1 and abs(s["walked_frac"] - G[u][v]["length"] / s["length"]) < 1e-9
+
+
 def test_pipeline_on_osm_graph(tmp_path):
     import json
     from osm_fixture import fake_overpass

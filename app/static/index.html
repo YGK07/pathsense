@@ -19,7 +19,7 @@ td,th{border-bottom:1px solid #ddd;padding:3px;text-align:left}.sw{display:inlin
 <label>Mobility profile</label><select id="profile"></select>
 <label>Map layer</label><select id="layer"><option value="est">Inferred by PathSense</option><option value="true">Ground truth (OSM tags + simulation)</option></select>
 <p><small>Click the map to set <b>start</b>, then <b>destination</b>. Click again to restart.</small></p>
-<button id="clear">Clear</button><div id="stats"></div>
+<button id="clear">Clear</button><button id="zoomc" style="margin-top:6px">Zoom to campus</button><button id="demo" style="margin-top:6px;font-weight:600">Demo route (real kerbs)</button><div id="demolabel" style="font-size:12px;color:#555;margin-top:4px"></div><div id="stats"></div>
 <p><small><span class="sw" style="background:#2e9e4f"></span>accessible
 <span class="sw" style="background:#f0a020"></span>caution <span class="sw" style="background:#d63a3a"></span>blocked
 <span class="sw" style="background:#999;height:2px"></span>never observed (predicted by GCN)</small></p>
@@ -28,7 +28,7 @@ td,th{border-bottom:1px solid #ddd;padding:3px;text-align:left}.sw{display:inlin
 <div id="realsum">No real walks processed yet (run scripts/process_walks.py).</div>
 <div style="margin-top:6px"><span class="sw" style="background:#6a3d9a"></span>walk by c01 <span class="sw" style="background:#00897b"></span>walk by c02<br><span class="dot" style="background:#d63a3a;border:2px solid #7a1010"></span>kerb-like jolt found in 2+ walks
 <br><span class="dot" style="background:#bbb"></span>jolt found in one walk only
-<br>&#9650; / &#9660; kerb step up / down marked by the walker (filled = detector found it)</div>
+<br>&#9650; / &#9660; kerb step up / down marked by the walker (filled = detector found it)<br>&#9940; barrier reported by a walker (e.g. steps)</div>
 <details><summary>Add a walk</summary>
 <small>Record with Sensor Logger (Gravity on), export as Zipped CSV, upload here. Start with 3 firm presses of the Annotation button.</small>
 <form id="upform"><input type="file" name="file" accept=".zip" required>
@@ -37,15 +37,16 @@ td,th{border-bottom:1px solid #ddd;padding:3px;text-align:left}.sw{display:inlin
 <button type="submit" style="margin-top:6px">Upload and update map</button></form><div id="upmsg"></div></details></div></div>
 <div id="map"></div>
 <script>
-const COL=["#2e9e4f","#f0a020","#d63a3a"];let M,R,map,edgeLayer,routeLayer,realLayer,pts=[],markers=[];
+const COL=["#2e9e4f","#f0a020","#d63a3a"];let M,R,CAMPUS,map,edgeLayer,routeLayer,realLayer,pts=[],markers=[];
 const WALKER={c01:'#6a3d9a',c02:'#00897b'};
 map=L.map('map',{preferCanvas:true});L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
 function draw(){if(edgeLayer)map.removeLayer(edgeLayer);edgeLayer=L.layerGroup().addTo(map);const k=document.getElementById('layer').value;
  const N=Object.fromEntries(M.nodes.map(n=>[n.id,n]));
  M.edges.forEach(e=>{const a=N[e.u],b=N[e.v],c=(k==='est'?e.est:e.true).cls;
   L.polyline(e.geom||[[a.lat,a.lon],[b.lat,b.lon]],{color:COL[c],weight:4,opacity:.85,dashArray:(k==='est'&&!e.observed)?'6 6':null}).bindTooltip(
-  `segment ${e.idx} · ${M.classes[c]}<br>roughness ${(k==='est'?e.est:e.true).rough.toFixed(2)} · gradient ${(k==='est'?e.est:e.true).grad.toFixed(1)}° · kerbs ${(k==='est'?e.est:e.true).kerbs}<br>${e.observed?e.n_obs+' observations':'not observed'}${e.osm_surface?'<br>OSM surface: '+e.osm_surface:''}${e.src&&k==='true'?'<br>source: '+Object.entries(e.src).map(([a,b])=>a+'='+b).join(', '):''}`).addTo(edgeLayer)});drawReal()}
+  `segment ${e.idx} · ${M.classes[c]}<br>roughness ${(k==='est'?e.est:e.true).rough.toFixed(2)} · gradient ${(k==='est'?e.est:e.true).grad.toFixed(1)}° · kerbs ${(k==='est'?e.est:e.true).kerbs}<br>${e.observed?e.n_obs+' observations':'not observed'}${e.walks?'<br>walked by '+e.walks+' contributor'+(e.walks>1?'s':''):''}${e.real_kerbs?'<br>kerb spots found by real walks: '+e.real_kerbs:''}${(e.reported||[]).length?'<br>reported: '+e.reported.join('; '):''}${e.osm_surface?'<br>OSM surface: '+e.osm_surface:''}${e.src&&k==='true'?'<br>source: '+Object.entries(e.src).map(([a,b])=>a+'='+b).join(', '):''}`).addTo(edgeLayer)});drawReal()}
 function drawReal(){if(realLayer)map.removeLayer(realLayer);if(!R||!document.getElementById('realchk').checked)return;realLayer=L.layerGroup().addTo(map);
+ (M.reports||[]).forEach(r=>L.marker([r.lat,r.lon],{icon:L.divIcon({className:'',iconSize:[18,18],html:'<span style="font-size:16px">&#9940;</span>'})}).bindTooltip(`reported ${r.type}: ${r.landmark}`).addTo(realLayer));
  R.walks.forEach(w=>{const c=WALKER[w.contributor]||'#555';
   L.polyline(w.track,{color:c,weight:4,opacity:.9,dashArray:'2 6'}).bindTooltip(`walk by ${w.contributor} (${w.device}, ${w.carry}) · ${w.length_m} m`).addTo(realLayer);
   w.labelled.forEach(p=>L.marker([p.lat,p.lon],{icon:L.divIcon({className:'',iconSize:[14,14],html:`<span style="font-size:14px;color:${c};${p.detected?'':'opacity:.55'}">${p.label==='up'?(p.detected?'&#9650;':'&#9651;'):(p.detected?'&#9660;':'&#9661;')}</span>`})})
@@ -58,20 +59,28 @@ async function loadReal(){R=await (await fetch('/api/real')).json();if(R.walks&&
 document.getElementById('realchk').onchange=drawReal;
 document.getElementById('upform').onsubmit=async e=>{e.preventDefault();const msg=document.getElementById('upmsg');msg.textContent='Processing... (takes a few seconds)';
  const r=await fetch('/api/upload',{method:'POST',body:new FormData(e.target)});const j=await r.json();
- if(!r.ok){msg.textContent=j.error;return}msg.textContent=`Added. Now ${j.summary.n_walks} walks, ${j.summary.confirmed_clusters} confirmed jolt spots.`;e.target.reset();loadReal()};
+ if(!r.ok){msg.textContent=j.error;return}msg.textContent=`Added. Now ${j.summary.n_walks} walks, ${j.summary.confirmed_clusters} confirmed jolt spots.`;e.target.reset();M=await (await fetch('/api/map')).json();draw();loadReal()};
+function fitCampus(){map.invalidateSize();if(CAMPUS)map.fitBounds(CAMPUS,{animate:false})}
 function nearest(ll){let b=null,d=1e9;M.nodes.forEach(n=>{const x=(n.lat-ll.lat)**2+(n.lon-ll.lng)**2;if(x<d){d=x;b=n}});return b}
 function clear(){pts=[];markers.forEach(m=>map.removeLayer(m));markers=[];if(routeLayer)map.removeLayer(routeLayer);document.getElementById('stats').innerHTML=''}
-async function go(){const p=document.getElementById('profile').value;const r=await (await fetch(`/api/route?profile=${p}&src=${pts[0].id}&dst=${pts[1].id}`)).json();
+async function go(fitTo){const p=document.getElementById('profile').value;const r=await (await fetch(`/api/route?profile=${p}&src=${pts[0].id}&dst=${pts[1].id}`)).json();
  if(routeLayer)map.removeLayer(routeLayer);routeLayer=L.layerGroup().addTo(map);
  L.polyline(r.shortest.coords,{color:'#222',weight:4,dashArray:'2 8'}).addTo(routeLayer);L.polyline(r.pathsense.coords,{color:'#1565c0',weight:7,opacity:.8}).addTo(routeLayer);
- const f=(o)=>`<td>${o.length.toFixed(0)} m</td><td>${o.blocked}</td><td>${o.kerbs}</td><td>${o.mean_rough.toFixed(2)}</td>`;
- document.getElementById('stats').innerHTML=`<table><tr><th></th><th>Length</th><th>Blocked</th><th>Kerbs</th><th>Rough</th></tr>
- <tr><td><span class="sw" style="background:#222"></span>Shortest</td>${f(r.shortest)}</tr><tr><td><span class="sw" style="background:#1565c0"></span>PathSense</td>${f(r.pathsense)}</tr></table>`}
+ const f=(o)=>`<td>${o.length.toFixed(0)} m</td><td>${o.blocked}</td><td>${Math.round(100*o.walked_frac)}%</td><td><b>${o.real_kerbs}</b></td><td><b>${o.reported}</b></td>`;
+ document.getElementById('stats').innerHTML=`<table><tr><th></th><th>Length</th><th>Blocked</th><th title="share of the route covered by real recorded walks">Walked</th><th title="kerb spots confirmed by 2+ real walks">Kerbs found</th><th title="barriers reported by walkers, e.g. steps">Reported</th></tr>
+ <tr><td><span class="sw" style="background:#222"></span>Shortest</td>${f(r.shortest)}</tr><tr><td><span class="sw" style="background:#1565c0"></span>PathSense</td>${f(r.pathsense)}</tr></table>
+ <small><b>Walked</b> = share of the route our phones actually recorded; <b>Kerbs found</b> = kerb spots picked up on 2+ walks (0 on an unwalked route means no data, not no kerbs); <b>Reported</b> = barriers walkers reported, e.g. steps. Blocked also includes simulated values.</small>`;
+ if(fitTo)map.fitBounds(L.latLngBounds(r.shortest.coords.concat(r.pathsense.coords)).pad(0.25),{animate:false})}
+async function runDemo(){clear();const d=await (await fetch('/api/demo')).json();const N=Object.fromEntries(M.nodes.map(n=>[n.id,n]));
+ document.getElementById('profile').value=d.profile;pts=[N[d.src],N[d.dst]];
+ pts.forEach((n,i)=>markers.push(L.marker([n.lat,n.lon]).addTo(map).bindTooltip(i?'Destination':'Start',{permanent:true})));
+ document.getElementById('demolabel').textContent='Demo trip: '+d.label;await go(true)}
 map.on('click',e=>{if(pts.length==2)clear();const n=nearest(e.latlng);pts.push(n);markers.push(L.marker([n.lat,n.lon]).addTo(map).bindTooltip(pts.length==1?'Start':'Destination',{permanent:true}));if(pts.length==2)go()});
-document.getElementById('clear').onclick=clear;document.getElementById('layer').onchange=draw;document.getElementById('profile').onchange=()=>{if(pts.length==2)go()};
+document.getElementById('clear').onclick=clear;document.getElementById('zoomc').onclick=fitCampus;document.getElementById('demo').onclick=runDemo;document.getElementById('layer').onchange=draw;document.getElementById('profile').onchange=()=>{if(pts.length==2)go()};
 fetch('/api/map').then(r=>r.json()).then(m=>{M=m;if(m.synthetic){document.getElementById('syn').style.display='block';document.getElementById('geo').textContent=m.real_geometry?'real OpenStreetMap':'a FAKE grid (run scripts/fetch_osm.py)'}
  const s=document.getElementById('profile');Object.keys(m.profiles).filter(p=>p!=='shortest').forEach(p=>s.add(new Option(p.replace('_',' '),p)));
  s.value='manual_wheelchair';
- const b=L.latLngBounds(m.nodes.map(n=>[n.lat,n.lon]));map.invalidateSize();map.fitBounds(b);draw();
- addEventListener('resize',()=>map.invalidateSize());loadReal()});
+ CAMPUS=L.latLngBounds(m.nodes.map(n=>[n.lat,n.lon]));fitCampus();draw();
+ setTimeout(fitCampus,300);setTimeout(()=>{if(map.getZoom()<12)fitCampus()},1200);   // the map can load before its box has a size
+ addEventListener('resize',()=>{map.invalidateSize();if(map.getZoom()<12)fitCampus()});loadReal();if(new URLSearchParams(location.search).has('demo'))setTimeout(runDemo,1500)});
 </script></body></html>
