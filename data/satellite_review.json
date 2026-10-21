@@ -1,0 +1,451 @@
+{
+ "_about": "Visual check of Esri World Imagery (z19) on 2026-10-21. Only segments whose surface was clearly visible are listed; paths under trees were left out. Surface only: kerbs and steps can't be seen from above.",
+ "61": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "516": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "514": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "59": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "217": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "359": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "360": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "361": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "428": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "243": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "39": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "355": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "236": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "507": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "510": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "51": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "50": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "509": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "53": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "183": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "346": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "200": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "347": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "197": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "57": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "368": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "295": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "357": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "302": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "202": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "143": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "105": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "104": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "107": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "319": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "321": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "373": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "375": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "377": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "316": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "371": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "313": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "312": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "443": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "450": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "372": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "26": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "191": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "112": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "110": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "189": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "192": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "10": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "19": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "486": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "487": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "488": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "485": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "340": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "339": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "336": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "17": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "14": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "15": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "0": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "1": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "2": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "3": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "20": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "18": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "23": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "317": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "323": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "432": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "433": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "461": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "179": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "178": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "381": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "263": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "256": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "258": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "259": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "260": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "261": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "304": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "305": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "307": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "394": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "54": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "56": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "58": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "60": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "63": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "65": {
+  "surface": "paved",
+  "note": "paved surface visible"
+ },
+ "281": {
+  "surface": "unpaved",
+  "note": "dirt edge of the athletics track and across the open field"
+ },
+ "282": {
+  "surface": "unpaved",
+  "note": "sand by the stadium stand"
+ },
+ "515": {
+  "surface": "unpaved",
+  "note": "sand by the stadium stand"
+ },
+ "354": {
+  "surface": "unpaved",
+  "note": "farm track"
+ },
+ "351": {
+  "surface": "unpaved",
+  "note": "farm track"
+ },
+ "255": {
+  "surface": "unpaved",
+  "note": "dirt road east of the construction site"
+ },
+ "297": {
+  "surface": "unpaved",
+  "note": "dirt road along the construction site"
+ },
+ "352": {
+  "surface": "unpaved",
+  "note": "dirt track along the farm"
+ },
+ "410": {
+  "surface": "unpaved",
+  "note": "construction site"
+ },
+ "411": {
+  "surface": "unpaved",
+  "note": "construction site"
+ },
+ "412": {
+  "surface": "unpaved",
+  "note": "construction site"
+ },
+ "413": {
+  "surface": "unpaved",
+  "note": "construction site"
+ },
+ "415": {
+  "surface": "unpaved",
+  "note": "construction site"
+ },
+ "374": {
+  "surface": "unpaved",
+  "note": "lake-shore path through trees"
+ },
+ "470": {
+  "surface": "unpaved",
+  "note": "lake-shore edge"
+ },
+ "505": {
+  "surface": "unpaved",
+  "note": "lake-shore path"
+ },
+ "462": {
+  "surface": "unpaved",
+  "note": "dirt path from the field to the lake"
+ }
+}

@@ -1,14 +1,19 @@
 """Functionality 6: profile-conditioned accessibility-cost routing (A* over the segment graph).
 
-cost(e) = d(e) + w_g*grad_deg + w_r*roughness + w_k*kerbs   (weights per mobility profile, see config.PROFILES)
+cost(e) = d(e) + w_g*grad_deg + w_r*roughness + w_k*kerbs + w_s*stairs (+ CLOSED_COST if reported closed)
+          + d(e)*(w_p*poor_surface + w_u*unchecked) + w_m*possible_kerbs + w_n*narrow   (real-condition terms)
+(weights per mobility profile, see config.PROFILES)
 """
 import numpy as np, networkx as nx
-from .config import PROFILES
+from .config import PROFILES, CLOSED_COST
 
 
 def edge_cost(d, profile, attrs):
     p = PROFILES[profile] if isinstance(profile, str) else profile
-    return d["length"] + p["w_g"] * attrs["grad"] + p["w_r"] * attrs["rough"] + p["w_k"] * attrs["kerbs"]
+    return (d["length"] + p["w_g"] * attrs["grad"] + p["w_r"] * attrs["rough"] + p["w_k"] * attrs["kerbs"]
+            + p.get("w_s", 0.0) * attrs.get("stairs", 0) + CLOSED_COST * attrs.get("closed", 0)
+            + d["length"] * (p.get("w_p", 0.0) * attrs.get("poor", 0) + p.get("w_u", 0.0) * attrs.get("unknown", 0))
+            + p.get("w_m", 0.0) * attrs.get("maybe", 0) + p.get("w_n", 0.0) * attrs.get("narrow", 0))
 
 
 def route(G, src, dst, profile, attr_key="est"):
@@ -21,16 +26,19 @@ def route(G, src, dst, profile, attr_key="est"):
 
 
 def path_stats(G, path, profile="shortest", attr_key="true"):
-    L = rough = kerbs = blocked = caution = real = reported = walked = 0
+    L = rough = kerbs = blocked = caution = real = reported = walked = stairs = closed = unpaved = unknown = maybe = 0
     cost = 0.0
     for u, v in zip(path[:-1], path[1:]):
         d = G[u][v]; a = d[attr_key] if attr_key != "true" else d
         L += d["length"]; kerbs += a["kerbs"]; blocked += int(a["cls"] == 2); caution += int(a["cls"] == 1)
         rough += a["rough"] * d["length"]; cost += edge_cost(d, profile, a)
         real += int(d.get("real_kerbs", 0)); reported += len(d.get("reported", []))
+        stairs += int(a.get("stairs", 0)); closed += int(a.get("closed", 0))
         walked += d["length"] if d.get("walks", 0) > 0 else 0
+        unpaved += d["length"] * (a.get("poor", 0) >= 1); unknown += d["length"] * a.get("unknown", 0); maybe += a.get("maybe", 0)
     return dict(length=L, kerbs=int(kerbs), blocked=blocked, caution=caution, mean_rough=rough / max(L, 1), cost=cost,
-                real_kerbs=real, reported=reported, walked_frac=walked / max(L, 1e-9))
+                real_kerbs=real, reported=reported, walked_frac=walked / max(L, 1e-9), stairs=stairs, closed=closed,
+                unpaved_m=unpaved, unknown_m=unknown, maybe_kerbs=maybe)
 
 
 def mark_real_kerbs(G, spots, max_dist=15.0):
@@ -54,13 +62,17 @@ def mark_real_kerbs(G, spots, max_dist=15.0):
     return marked
 
 
-STEP_KERBS = 3        # a reported flight of steps costs like 3 kerbs: never worth it for a wheelchair profile
+REPORT_TYPES = {"stairs": "Stairs", "steps": "Stairs", "kerb": "Kerb", "broken": "Broken or rough path",
+                "rough": "Broken or rough path", "steep": "Steep slope", "blocked": "Path blocked or closed",
+                "closed": "Path blocked or closed"}
 
 
 def mark_reported(G, reports, max_dist=15.0):
-    """Barriers reported by walkers in the ground-truth sheet (data/ground_truth/features.csv rows with lat/lon):
-    type 'steps' or 'kerb'. The nearest segment becomes blocked in edge['est'] and lists the report in
-    edge['reported']. Rows without a position are skipped. Returns the edge idx values marked."""
+    """Barriers walkers reported, with a position (lat/lon): from the ground-truth sheet, the site's "Report a
+    problem" form or stairs double-pressed on a walk. The nearest segment's edge['est'] changes by type -
+    stairs/steps: +1 flight of stairs; kerb: +1 kerb; broken/rough: roughness >= 0.85; steep: slope >= 8 deg;
+    blocked/closed: closed to everyone - and the report is listed in edge['reported']. Rows without a position or
+    farther than max_dist from any path are skipped. Returns the edge idx values marked."""
     from .io import edge_index, match_points
     rows = []
     for r in reports:
@@ -76,9 +88,21 @@ def mark_reported(G, reports, max_dist=15.0):
     for i, (_, _, r) in zip(e, rows):
         if i < 0:
             continue
-        d = by_idx[int(i)]
-        k = STEP_KERBS if r.get("type") == "steps" else 1
-        d["est"] = {**d["est"], "kerbs": d["est"]["kerbs"] + k, "cls": 2}
-        d.setdefault("reported", []).append(f"{r.get('type', 'barrier')}: {r.get('landmark', '')}".strip())
+        d = by_idx[int(i)]; a = dict(d["est"]); t = (r.get("type") or "").lower()
+        if t in ("stairs", "steps"):
+            a["stairs"] = a.get("stairs", 0) + 1
+        elif t == "kerb":
+            a["kerbs"] = a["kerbs"] + 1
+        elif t in ("broken", "rough"):
+            a["rough"] = max(a["rough"], 0.85)
+        elif t == "steep":
+            a["grad"] = max(a["grad"], 8.0)
+        elif t in ("blocked", "closed"):
+            a["closed"] = 1
+        else:
+            continue
+        a["cls"] = 2
+        d["est"] = a
+        d.setdefault("reported", []).append(f"{r.get('type', 'barrier')}: {r.get('landmark') or r.get('note') or ''}".strip().rstrip(":"))
         marked.append(int(i))
     return marked

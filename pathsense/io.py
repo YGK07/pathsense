@@ -110,14 +110,24 @@ def _groups(x, gap=4.0):
     return g
 
 
+def _sync_groups(rel):
+    """(start group, end group) of >=3 quick presses (indices), or None where a walk has no such group."""
+    g = _groups(rel)
+    start = g[0] if g and len(g[0]) >= 3 else None
+    end = g[-1] if len(g) > 1 and len(g[-1]) >= 3 else None
+    return start, end
+
+
 def align_annotations(r, min_conf=3.0):
-    """Offset that maps annotation clock -> seconds since Start, from the leading group of >=3 sync presses.
-    Returns (offset_for_first_press, confidence) or (None, confidence) when the presses can't be found in the signal."""
+    """Offset that maps the annotation clock -> seconds since Start, using the sync presses: a group of >=3 quick
+    presses at the start of the walk and/or at its end (either is enough). The presses also jolt the phone, so the
+    offset is the one that lands them on jolts; a start group must sit near the start of the walk, an end group near
+    its end. Returns (offset_for_first_press, confidence) or (None, confidence) when they can't be found."""
     if len(r.ann_raw) < 3:
         return None, 0.0
     rel = r.ann_raw - r.ann_raw[0]
-    sync = _groups(rel)[0]
-    if len(sync) < 3:
+    start, end = _sync_groups(rel)
+    if start is None and end is None:
         return None, 0.0
     fs = r.fs
     sa = np.abs(highpass(np.linalg.norm(r.acc, axis=1), 3.0, fs))
@@ -127,30 +137,79 @@ def align_annotations(r, min_conf=3.0):
     # max over +-0.15 s, computed once, then sampled at candidate press times
     from scipy.ndimage import maximum_filter1d
     burst = maximum_filter1d(sa, 2 * w + 1) + maximum_filter1d(sg, 2 * w + 1)
-    a, b = walking_window(r)                        # start sync presses come before (or as) the walk begins
-    offs = np.arange(r.t[0], max(r.t[0] + 0.01, min(a + 3.0, r.t[-1]) - rel[sync[-1]]), 0.01)
-    sc = sum(np.interp(offs + rel[i], r.t, burst) for i in sync)
-    last = _groups(rel)[-1] if len(_groups(rel)) > 1 else []
-    for i in last:                                  # end presses (after the walk) are taps too: they must also hit jolts
-        on = (offs + rel[i] > b - 1) & (offs + rel[i] <= r.t[-1])
+    a, b = walking_window(r)
+    offs = np.arange(r.t[0] - rel[0], r.t[-1] - rel[-1], 0.01)       # every press inside the recording
+    if not len(offs):
+        return None, 0.0
+    ok = np.ones(len(offs), bool); sc = np.zeros(len(offs))
+    if start is not None:                       # start presses come before (or as) the walk begins
+        ok &= offs + rel[start[-1]] <= a + 20
+        sc = sc + sum(np.interp(offs + rel[i], r.t, burst) for i in start)
+    if end is not None:                         # end presses come at (or after) the end of the walk
+        ok &= offs + rel[end[0]] >= b - 30
+        sc = sc + sum(np.interp(offs + rel[i], r.t, burst) for i in end)
+    groups = _groups(rel)
+    last = groups[-1] if len(groups) > 1 and end is None else []
+    for i in last:                              # a few presses right after the walk are taps too: they should hit jolts
+        on = offs + rel[i] > b - 1
         sc = sc + np.where(on, np.interp(offs + rel[i], r.t, burst), 0)
+    if not ok.any():
+        return None, 0.0
+    offs, sc = offs[ok], sc[ok]
     conf = float(sc.max() / (np.median(sc) + 1e-9))
     return (float(offs[np.argmax(sc)]), conf) if conf >= min_conf else (None, conf)
 
 
-def kerb_presses(r, offset):
-    """[(seconds since Start, 'up'/'down')] for annotation presses that fall inside the walk (sync presses dropped)."""
+def walk_bounds(r, offset=None):
+    """Walking window, tightened to lie between the start and end sync presses when they could be placed (so e.g.
+    lifting the phone for a call after the end presses is not counted as walking)."""
+    a, b = walking_window(r)
+    if offset is not None and len(r.ann_raw) >= 3:
+        t = r.ann_raw - r.ann_raw[0] + offset
+        start, end = _sync_groups(t)
+        if start is not None:
+            a = max(a, float(t[start[-1]]) + 1.0)
+        if end is not None:
+            b = min(b, float(t[end[0]]) - 1.0)
+    return a, b
+
+
+PAIR_GAP = 1.5        # two presses of the same button within this many seconds = one double press
+
+
+def labelled_presses(r, offset, pairs="stairs", stairs_at=()):
+    """Walker-marked events inside the walk, sync presses dropped: [(seconds since Start, 'up'/'down', kind)].
+    A single press of My Annotation 1 / 2 is a kerb step up / down (pressed just after the step). A quick double
+    press is a flight of stairs up / down (pressed just before it), unless `pairs` == "kerbs" for a walker who
+    double-pressed everything; `stairs_at` then lists the pairs (index among the walk's pairs, from 0) that were stairs."""
     if offset is None:
         return []
-    a, b = walking_window(r)
+    a, b = walk_bounds(r, offset)
     t = r.ann_raw - r.ann_raw[0] + offset
-    sync = {i for g in (_groups(t)[0], _groups(t)[-1]) if len(g) >= 3 for i in g}   # start and end sync taps
-    return [(float(t[i]), r.ann_labels[i]) for i in range(len(t)) if i not in sync and a <= t[i] <= b]
+    start, end = _sync_groups(t)
+    sync = set(start or []) | set(end or [])
+    idx = [i for i in range(len(t)) if i not in sync and a - 2 <= t[i] <= b + 2]
+    out, k, n_pair = [], 0, 0
+    while k < len(idx):
+        i = idx[k]
+        j = idx[k + 1] if k + 1 < len(idx) else None
+        if j is not None and r.ann_labels[j] == r.ann_labels[i] and t[j] - t[i] <= PAIR_GAP:
+            kind = "stairs" if pairs == "stairs" or n_pair in stairs_at else "kerb"
+            out.append((float(t[i]), r.ann_labels[i], kind)); n_pair += 1; k += 2
+        else:
+            out.append((float(t[i]), r.ann_labels[i], "kerb")); k += 1
+    return [e for e in out if a <= e[0] <= b]
 
 
-def detect_events(r, mult=2.0):
+def kerb_presses(r, offset):
+    """[(seconds since Start, 'up'/'down')] for the walker's kerb presses inside the walk (sync presses and stairs
+    double presses dropped)."""
+    return [(t, l) for t, l, kind in labelled_presses(r, offset) if kind == "kerb"]
+
+
+def detect_events(r, mult=2.0, bounds=None):
     """Kerb-like jolts: peaks of high-passed vertical acceleration above `mult` x the median footstep, inside the walk."""
-    a, b = walking_window(r)
+    a, b = bounds or walking_window(r)
     inside = (r.t > a + 1) & (r.t < b - 1)
     hp = np.abs(highpass(vertical(r), 3.0, r.fs)) * inside
     steps, _ = find_peaks(hp, distance=int(0.4 * r.fs))

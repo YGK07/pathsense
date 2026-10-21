@@ -103,7 +103,8 @@ def _walkable(tags):
 def build_graph(osm, lat0=None, lon0=None, min_len=2.0):
     """Overpass JSON -> undirected nx.Graph, nodes 0..n-1 with (x,y metres, lat, lon). Edges are junction-to-junction
     segments with: length (m), geom ([[lat,lon],...] following the real path), geom_from (node id geom starts at),
-    steps (bool), osm_surface, osm_incline, osm_kerbs (raised-kerb nodes on the segment), name. Only the largest connected component is kept (islands can't be routed to)."""
+    steps (bool), osm_surface, osm_incline, osm_kerbs (raised-kerb nodes on the segment), name, and the raw
+    osm_highway / osm_footway / osm_smoothness / osm_tracktype tags. Only the largest connected component is kept (islands can't be routed to)."""
     nodes = {e["id"]: (e["lat"], e["lon"]) for e in osm["elements"] if e["type"] == "node"}
     kerb_nodes = {e["id"] for e in osm["elements"] if e["type"] == "node"
                   and e.get("tags", {}).get("kerb") in RAISED_KERBS}
@@ -130,7 +131,9 @@ def build_graph(osm, lat0=None, lon0=None, min_len=2.0):
                 continue
             raw.add_edge(u, v, length=L, geom=geom, geom_from=u, steps=tags.get("highway") == "steps",
                          osm_surface=tags.get("surface"), osm_incline=tags.get("incline"),
-                         osm_kerbs=sum(n in kerb_nodes for n in seg), name=tags.get("name"))
+                         osm_kerbs=sum(n in kerb_nodes for n in seg), name=tags.get("name"),
+                         osm_highway=tags.get("highway"), osm_footway=tags.get("footway"),
+                         osm_smoothness=tags.get("smoothness"), osm_tracktype=tags.get("tracktype"))
     comp = max(nx.connected_components(raw), key=len)
     raw = raw.subgraph(comp).copy()
     ids = {n: i for i, n in enumerate(raw.nodes)}

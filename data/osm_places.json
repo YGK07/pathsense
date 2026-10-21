@@ -1,0 +1,969 @@
+[
+{
+"name": "3A Gate",
+"lat": 12.967631,
+"lon": 79.158527,
+"kind": "building"
+},
+{
+"name": "3MLD Sewage Treatment Plant",
+"lat": 12.968979,
+"lon": 79.166885,
+"kind": "place"
+},
+{
+"name": "A Block",
+"lat": 12.97191,
+"lon": 79.166671,
+"kind": "place"
+},
+{
+"name": "All Maart",
+"lat": 12.970096,
+"lon": 79.154349,
+"kind": "place"
+},
+{
+"name": "Amrtya Sen Avenue",
+"lat": 12.970335,
+"lon": 79.158246,
+"kind": "road"
+},
+{
+"name": "Amul",
+"lat": 12.969405,
+"lon": 79.158077,
+"kind": "building"
+},
+{
+"name": "Anna Audi Basketball Court 1",
+"lat": 12.969974,
+"lon": 79.156233,
+"kind": "sport"
+},
+{
+"name": "Anna Audi Basketball Court 2",
+"lat": 12.970441,
+"lon": 79.155961,
+"kind": "sport"
+},
+{
+"name": "Anna Audi Tennis Court",
+"lat": 12.970486,
+"lon": 79.156389,
+"kind": "sport"
+},
+{
+"name": "Anna Audi Volleyball Court",
+"lat": 12.970474,
+"lon": 79.155614,
+"kind": "sport"
+},
+{
+"name": "Anna Auditorium",
+"lat": 12.969946,
+"lon": 79.155675,
+"kind": "building"
+},
+{
+"name": "Apples Fruit Zone",
+"lat": 12.969564,
+"lon": 79.157309,
+"kind": "food"
+},
+{
+"name": "Automative Research Center",
+"lat": 12.969691,
+"lon": 79.155147,
+"kind": "building"
+},
+{
+"name": "B Annexe",
+"lat": 12.974922,
+"lon": 79.157364,
+"kind": "building"
+},
+{
+"name": "B Block",
+"lat": 12.967927,
+"lon": 79.158162,
+"kind": "building"
+},
+{
+"name": "Balaji Book Stores",
+"lat": 12.97111,
+"lon": 79.160211,
+"kind": "building"
+},
+{
+"name": "Baltimore Road",
+"lat": 12.974336,
+"lon": 79.157831,
+"kind": "road"
+},
+{
+"name": "Bardeen Avenue",
+"lat": 12.973963,
+"lon": 79.158865,
+"kind": "road"
+},
+{
+"name": "C Block",
+"lat": 12.971056,
+"lon": 79.1663,
+"kind": "place"
+},
+{
+"name": "Canteen",
+"lat": 12.970534,
+"lon": 79.154461,
+"kind": "food"
+},
+{
+"name": "CDMM Building",
+"lat": 12.969171,
+"lon": 79.154963,
+"kind": "building"
+},
+{
+"name": "Chandra Avenue",
+"lat": 12.969251,
+"lon": 79.155333,
+"kind": "road"
+},
+{
+"name": "Chillout Plaza",
+"lat": 12.97348,
+"lon": 79.164692,
+"kind": "building"
+},
+{
+"name": "Chota Dhobi Laundry Services",
+"lat": 12.972152,
+"lon": 79.158805,
+"kind": "building"
+},
+{
+"name": "Chotta Dhobi",
+"lat": 12.974754,
+"lon": 79.164198,
+"kind": "place"
+},
+{
+"name": "Compton Avenue",
+"lat": 12.973169,
+"lon": 79.159239,
+"kind": "road"
+},
+{
+"name": "Crick Avenue",
+"lat": 12.973826,
+"lon": 79.164061,
+"kind": "road"
+},
+{
+"name": "CS Hall",
+"lat": 12.970169,
+"lon": 79.155675,
+"kind": "building"
+},
+{
+"name": "D Annexe",
+"lat": 12.973355,
+"lon": 79.158841,
+"kind": "building"
+},
+{
+"name": "D Block",
+"lat": 12.970688,
+"lon": 79.165885,
+"kind": "place"
+},
+{
+"name": "Darling",
+"lat": 12.973386,
+"lon": 79.164266,
+"kind": "food"
+},
+{
+"name": "Darling SPL Mess",
+"lat": 12.973574,
+"lon": 79.16426,
+"kind": "food"
+},
+{
+"name": "DC Bakery",
+"lat": 12.970076,
+"lon": 79.15889,
+"kind": "food"
+},
+{
+"name": "Dr Bawendi Road",
+"lat": 12.968477,
+"lon": 79.164244,
+"kind": "road"
+},
+{
+"name": "E Block",
+"lat": 12.971709,
+"lon": 79.165755,
+"kind": "place"
+},
+{
+"name": "Eagle Hairdresser",
+"lat": 12.970264,
+"lon": 79.154356,
+"kind": "place"
+},
+{
+"name": "Enzo",
+"lat": 12.972458,
+"lon": 79.158868,
+"kind": "place"
+},
+{
+"name": "EV Periyar Library",
+"lat": 12.969323,
+"lon": 79.156856,
+"kind": "building"
+},
+{
+"name": "F Block",
+"lat": 12.973986,
+"lon": 79.158349,
+"kind": "building"
+},
+{
+"name": "Fire Hydrant Room",
+"lat": 12.97441,
+"lon": 79.163842,
+"kind": "place"
+},
+{
+"name": "Fitty gym",
+"lat": 12.97322,
+"lon": 79.1644,
+"kind": "building"
+},
+{
+"name": "Fleming Road",
+"lat": 12.969655,
+"lon": 79.155955,
+"kind": "road"
+},
+{
+"name": "Food Court",
+"lat": 12.970021,
+"lon": 79.158981,
+"kind": "food"
+},
+{
+"name": "Food Mall",
+"lat": 12.972533,
+"lon": 79.162216,
+"kind": "food"
+},
+{
+"name": "Food Park",
+"lat": 12.97217,
+"lon": 79.157996,
+"kind": "food"
+},
+{
+"name": "Foodcry",
+"lat": 12.972499,
+"lon": 79.162027,
+"kind": "food"
+},
+{
+"name": "Foodys",
+"lat": 12.968992,
+"lon": 79.158339,
+"kind": "food"
+},
+{
+"name": "G Block",
+"lat": 12.968039,
+"lon": 79.159676,
+"kind": "building"
+},
+{
+"name": "G.D Naidu Block",
+"lat": 12.969937,
+"lon": 79.154845,
+"kind": "building"
+},
+{
+"name": "Ganga Xerox",
+"lat": 12.972063,
+"lon": 79.166601,
+"kind": "place"
+},
+{
+"name": "GDN (G.D Naidu Block)",
+"lat": 12.969937,
+"lon": 79.154845,
+"kind": "building",
+"alias": "GDN"
+},
+{
+"name": "Gorbachev Road",
+"lat": 12.972674,
+"lon": 79.158819,
+"kind": "road"
+},
+{
+"name": "Greenos",
+"lat": 12.969398,
+"lon": 79.158403,
+"kind": "sport"
+},
+{
+"name": "H Block",
+"lat": 12.972385,
+"lon": 79.157418,
+"kind": "building"
+},
+{
+"name": "HDFC Bank",
+"lat": 12.969749,
+"lon": 79.155186,
+"kind": "building"
+},
+{
+"name": "Health Centre",
+"lat": 12.969504,
+"lon": 79.154646,
+"kind": "building"
+},
+{
+"name": "hostel road",
+"lat": 12.967763,
+"lon": 79.159583,
+"kind": "road"
+},
+{
+"name": "Hydro Pneumatic System",
+"lat": 12.974316,
+"lon": 79.163845,
+"kind": "place"
+},
+{
+"name": "Hydro Pneumatic System Room",
+"lat": 12.974315,
+"lon": 79.163841,
+"kind": "place"
+},
+{
+"name": "Ida Scudder Block",
+"lat": 12.970894,
+"lon": 79.162039,
+"kind": "building"
+},
+{
+"name": "Indian Bank",
+"lat": 12.969937,
+"lon": 79.154344,
+"kind": "building"
+},
+{
+"name": "J Block",
+"lat": 12.972345,
+"lon": 79.158164,
+"kind": "building"
+},
+{
+"name": "J Block lift",
+"lat": 12.968048,
+"lon": 79.159086,
+"kind": "place"
+},
+{
+"name": "Jhansi Rani Block",
+"lat": 12.971066,
+"lon": 79.161312,
+"kind": "building"
+},
+{
+"name": "Jimmy Carter Road",
+"lat": 12.972086,
+"lon": 79.164496,
+"kind": "road"
+},
+{
+"name": "Just Bake",
+"lat": 12.972722,
+"lon": 79.159053,
+"kind": "place"
+},
+{
+"name": "K Block",
+"lat": 12.972295,
+"lon": 79.161436,
+"kind": "building"
+},
+{
+"name": "Kalpana Chawla Ground",
+"lat": 12.968243,
+"lon": 79.156959,
+"kind": "sport"
+},
+{
+"name": "Kamdar opticians",
+"lat": 12.970932,
+"lon": 79.158543,
+"kind": "place"
+},
+{
+"name": "Karthick Driving School",
+"lat": 12.972178,
+"lon": 79.159124,
+"kind": "building"
+},
+{
+"name": "Khorana Avenue",
+"lat": 12.969204,
+"lon": 79.157211,
+"kind": "road"
+},
+{
+"name": "King Road",
+"lat": 12.968768,
+"lon": 79.157,
+"kind": "road"
+},
+{
+"name": "Kissinger Road",
+"lat": 12.973191,
+"lon": 79.158883,
+"kind": "road"
+},
+{
+"name": "L Block",
+"lat": 12.972498,
+"lon": 79.162717,
+"kind": "building"
+},
+{
+"name": "Lee Road",
+"lat": 12.972036,
+"lon": 79.157524,
+"kind": "road"
+},
+{
+"name": "Lehn Avenue",
+"lat": 12.972405,
+"lon": 79.1571,
+"kind": "road"
+},
+{
+"name": "Library (EV Periyar Library)",
+"lat": 12.969323,
+"lon": 79.156856,
+"kind": "building",
+"alias": "Library"
+},
+{
+"name": "Little Shop",
+"lat": 12.969823,
+"lon": 79.155154,
+"kind": "place"
+},
+{
+"name": "Liv Cafeteria",
+"lat": 12.970719,
+"lon": 79.165957,
+"kind": "food"
+},
+{
+"name": "M Annexe",
+"lat": 12.972781,
+"lon": 79.164619,
+"kind": "building"
+},
+{
+"name": "M Block",
+"lat": 12.972845,
+"lon": 79.164184,
+"kind": "building"
+},
+{
+"name": "Mahatma Gandhi Block (MGB)",
+"lat": 12.972075,
+"lon": 79.167931,
+"kind": "building"
+},
+{
+"name": "Main Building",
+"lat": 12.969244,
+"lon": 79.155886,
+"kind": "building"
+},
+{
+"name": "Main Gate Fountain",
+"lat": 12.968649,
+"lon": 79.155934,
+"kind": "building"
+},
+{
+"name": "Main Gate UNI Entrance",
+"lat": 12.968358,
+"lon": 79.155678,
+"kind": "building"
+},
+{
+"name": "Main Subway",
+"lat": 12.971245,
+"lon": 79.158287,
+"kind": "road"
+},
+{
+"name": "Men's hostel entrance",
+"lat": 12.96967,
+"lon": 79.15822,
+"kind": "gate"
+},
+{
+"name": "Men's Hostel Indoor Stadium",
+"lat": 12.97209,
+"lon": 79.159187,
+"kind": "building"
+},
+{
+"name": "MGB (Mahatma Gandhi Block (MGB))",
+"lat": 12.972075,
+"lon": 79.167931,
+"kind": "building",
+"alias": "MGB"
+},
+{
+"name": "MH Basketball Court",
+"lat": 12.971755,
+"lon": 79.157415,
+"kind": "sport"
+},
+{
+"name": "MH Swimming Pool",
+"lat": 12.9745,
+"lon": 79.160856,
+"kind": "sport"
+},
+{
+"name": "MH Tennis Courts",
+"lat": 12.971706,
+"lon": 79.157811,
+"kind": "sport"
+},
+{
+"name": "MH Volleyball Court",
+"lat": 12.971775,
+"lon": 79.157122,
+"kind": "sport"
+},
+{
+"name": "Mother Teresa Block",
+"lat": 12.970954,
+"lon": 79.160679,
+"kind": "building"
+},
+{
+"name": "N Block",
+"lat": 12.975037,
+"lon": 79.164129,
+"kind": "building"
+},
+{
+"name": "Naipaul Avenue",
+"lat": 12.969244,
+"lon": 79.158672,
+"kind": "road"
+},
+{
+"name": "Nescafe",
+"lat": 12.971402,
+"lon": 79.16325,
+"kind": "building"
+},
+{
+"name": "NSS Office",
+"lat": 12.969906,
+"lon": 79.155156,
+"kind": "place"
+},
+{
+"name": "One Food World",
+"lat": 12.972632,
+"lon": 79.156922,
+"kind": "food"
+},
+{
+"name": "Outdoor Stadium",
+"lat": 12.975971,
+"lon": 79.160073,
+"kind": "building"
+},
+{
+"name": "Outdoor Stadium Helipad 1",
+"lat": 12.975781,
+"lon": 79.1606,
+"kind": "place"
+},
+{
+"name": "Outdoor Stadium Helipad 2",
+"lat": 12.975479,
+"lon": 79.160701,
+"kind": "place"
+},
+{
+"name": "P Block",
+"lat": 12.97393,
+"lon": 79.164305,
+"kind": "building"
+},
+{
+"name": "Perl Research Park",
+"lat": 12.971415,
+"lon": 79.166252,
+"kind": "building"
+},
+{
+"name": "Planck Avenue",
+"lat": 12.972979,
+"lon": 79.15665,
+"kind": "road"
+},
+{
+"name": "PR Caterers",
+"lat": 12.974483,
+"lon": 79.164307,
+"kind": "food"
+},
+{
+"name": "PR Caterers Special Mess",
+"lat": 12.974255,
+"lon": 79.164345,
+"kind": "food"
+},
+{
+"name": "Pre-Clinical Research Laboratory",
+"lat": 12.970831,
+"lon": 79.16718,
+"kind": "building"
+},
+{
+"name": "PRP (Perl Research Park)",
+"lat": 12.971415,
+"lon": 79.166252,
+"kind": "building",
+"alias": "PRP"
+},
+{
+"name": "PRP/SJT Subway",
+"lat": 12.972406,
+"lon": 79.165192,
+"kind": "road"
+},
+{
+"name": "PS General Stores And Copier Shop",
+"lat": 12.972225,
+"lon": 79.157592,
+"kind": "place"
+},
+{
+"name": "Q Block",
+"lat": 12.973894,
+"lon": 79.163525,
+"kind": "building"
+},
+{
+"name": "Quick Bites",
+"lat": 12.972914,
+"lon": 79.16391,
+"kind": "food"
+},
+{
+"name": "R Block",
+"lat": 12.973303,
+"lon": 79.163272,
+"kind": "building"
+},
+{
+"name": "R Block WTP HNS & Fire Pump Room",
+"lat": 12.974579,
+"lon": 79.163874,
+"kind": "building"
+},
+{
+"name": "RG Mart",
+"lat": 12.973494,
+"lon": 79.158099,
+"kind": "place"
+},
+{
+"name": "Ruby Tower",
+"lat": 12.971234,
+"lon": 79.16503,
+"kind": "building"
+},
+{
+"name": "Running Track",
+"lat": 12.975928,
+"lon": 79.160716,
+"kind": "sport"
+},
+{
+"name": "S Block",
+"lat": 12.974151,
+"lon": 79.165708,
+"kind": "building"
+},
+{
+"name": "Samsung",
+"lat": 12.96928,
+"lon": 79.15813,
+"kind": "place"
+},
+{
+"name": "Sanjay Shop (Benzo)",
+"lat": 12.97275,
+"lon": 79.159277,
+"kind": "place"
+},
+{
+"name": "Saravana Medical",
+"lat": 12.971264,
+"lon": 79.160892,
+"kind": "building"
+},
+{
+"name": "Saravana Pharmacy",
+"lat": 12.972839,
+"lon": 79.15834,
+"kind": "building"
+},
+{
+"name": "security point  & main gate for hostels",
+"lat": 12.968366,
+"lon": 79.159508,
+"kind": "place"
+},
+{
+"name": "Sewage Treatment Plant 4",
+"lat": 12.972092,
+"lon": 79.159709,
+"kind": "place"
+},
+{
+"name": "Sewage Treatment Plant 5",
+"lat": 12.972061,
+"lon": 79.160145,
+"kind": "place"
+},
+{
+"name": "Sewage Treatment Plant 6",
+"lat": 12.972073,
+"lon": 79.160569,
+"kind": "place"
+},
+{
+"name": "Shalini Footcare And Services",
+"lat": 12.972458,
+"lon": 79.160931,
+"kind": "place"
+},
+{
+"name": "Shanti Stationery Store",
+"lat": 12.970896,
+"lon": 79.166241,
+"kind": "place"
+},
+{
+"name": "Silver Jubilee Tower",
+"lat": 12.970953,
+"lon": 79.163926,
+"kind": "building"
+},
+{
+"name": "Sir M Visvesvaraya Block",
+"lat": 12.969229,
+"lon": 79.15773,
+"kind": "building"
+},
+{
+"name": "SJT (Silver Jubilee Tower)",
+"lat": 12.970953,
+"lon": 79.163926,
+"kind": "building",
+"alias": "SJT"
+},
+{
+"name": "SJT Ground",
+"lat": 12.969505,
+"lon": 79.163294,
+"kind": "place"
+},
+{
+"name": "SMV (Sir M Visvesvaraya Block)",
+"lat": 12.969229,
+"lon": 79.15773,
+"kind": "building",
+"alias": "SMV"
+},
+{
+"name": "Souvenier Subway",
+"lat": 12.970673,
+"lon": 79.156722,
+"kind": "road"
+},
+{
+"name": "Sri Sabari Caterers",
+"lat": 12.970992,
+"lon": 79.166005,
+"kind": "food"
+},
+{
+"name": "Srinivasan General Stores",
+"lat": 12.973282,
+"lon": 79.164534,
+"kind": "building"
+},
+{
+"name": "Street Bites",
+"lat": 12.974854,
+"lon": 79.164116,
+"kind": "food"
+},
+{
+"name": "Style 632",
+"lat": 12.972562,
+"lon": 79.157603,
+"kind": "place"
+},
+{
+"name": "Suu Kyi Block",
+"lat": 12.970952,
+"lon": 79.162835,
+"kind": "building"
+},
+{
+"name": "T Block",
+"lat": 12.974779,
+"lon": 79.165806,
+"kind": "building"
+},
+{
+"name": "Technology Tower",
+"lat": 12.970656,
+"lon": 79.159513,
+"kind": "building"
+},
+{
+"name": "The Bright Fabric Care",
+"lat": 12.972371,
+"lon": 79.159388,
+"kind": "place"
+},
+{
+"name": "Tiruvallur Statue",
+"lat": 12.97184,
+"lon": 79.156823,
+"kind": "place"
+},
+{
+"name": "TT (Technology Tower)",
+"lat": 12.970656,
+"lon": 79.159513,
+"kind": "building",
+"alias": "TT"
+},
+{
+"name": "TT Annexe",
+"lat": 12.970826,
+"lon": 79.160197,
+"kind": "building"
+},
+{
+"name": "TT Basketball Court",
+"lat": 12.970392,
+"lon": 79.158457,
+"kind": "sport"
+},
+{
+"name": "TT Fountain Garden",
+"lat": 12.97073,
+"lon": 79.159369,
+"kind": "sport"
+},
+{
+"name": "TT Subway",
+"lat": 12.971461,
+"lon": 79.160364,
+"kind": "road"
+},
+{
+"name": "TT Volleyball Court",
+"lat": 12.970019,
+"lon": 79.158452,
+"kind": "sport"
+},
+{
+"name": "VIT",
+"lat": 12.968142,
+"lon": 79.156252,
+"kind": "road"
+},
+{
+"name": "VIT Agri Clinic",
+"lat": 12.966727,
+"lon": 79.162164,
+"kind": "building"
+},
+{
+"name": "VIT Guest House",
+"lat": 12.967799,
+"lon": 79.158911,
+"kind": "building"
+},
+{
+"name": "VIT Lake",
+"lat": 12.969544,
+"lon": 79.160516,
+"kind": "place"
+},
+{
+"name": "VIT Univ Estates Office & CTS",
+"lat": 12.970181,
+"lon": 79.156309,
+"kind": "building"
+},
+{
+"name": "VIT Women's Indoor Sports Room",
+"lat": 12.970608,
+"lon": 79.160705,
+"kind": "sport"
+},
+{
+"name": "Watson Road",
+"lat": 12.972838,
+"lon": 79.16258,
+"kind": "road"
+},
+{
+"name": "Whittingham Road",
+"lat": 12.970406,
+"lon": 79.1656,
+"kind": "road"
+},
+{
+"name": "Woodys",
+"lat": 12.970139,
+"lon": 79.157471,
+"kind": "building"
+},
+{
+"name": "Yunus Avenue",
+"lat": 12.969878,
+"lon": 79.156401,
+"kind": "road"
+}
+]

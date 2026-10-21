@@ -8,3 +8,4 @@ data/raw/
 data/*.csv
 .DS_Store
 .ipynb_checkpoints/
+data/photos/
