@@ -37,6 +37,8 @@ public class MainActivity extends Activity {
     private WebView web;
     private ValueCallback<Uri[]> fileCallback;
     private boolean locating = false;
+    private boolean loaded = false;
+    private final Handler ui = new Handler(Looper.getMainLooper());
 
     @Override
     protected void onCreate(Bundle state) {
@@ -51,10 +53,13 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(new Bridge(), "PathSenseApp");
         web.setWebViewClient(new WebViewClient() {
             @Override
+            public void onPageFinished(WebView v, String url) {
+                if (server() != null && url.startsWith(server())) loaded = true;
+            }
+
+            @Override
             public void onReceivedError(WebView v, WebResourceRequest req, WebResourceError err) {
-                if (req.isForMainFrame())
-                    askServer("Could not reach PathSense at " + server() + ".\n\nIs the laptop running start_pathsense.bat, "
-                            + "and is this phone on the same Wi-Fi or hotspot?");
+                if (req.isForMainFrame()) unreachable();
             }
 
             @Override
@@ -85,7 +90,25 @@ public class MainActivity extends Activity {
             }
         });
         if (server() == null) askServer(null);
-        else web.loadUrl(server());
+        else open(server());
+    }
+
+    /** Load the PathSense site; if it has not answered within 12 s, say so instead of showing a blank page. */
+    private void open(String url) {
+        loaded = false;
+        web.loadDataWithBaseURL(null, "<html><body style='font-family:sans-serif;padding:32px;color:#0F1E3D'>"
+                + "<h2>PathSense</h2><p>Connecting to " + url + " &hellip;</p></body></html>", "text/html", "utf-8", null);
+        web.loadUrl(url);
+        ui.removeCallbacksAndMessages(null);
+        ui.postDelayed(() -> { if (!loaded) { web.stopLoading(); unreachable(); } }, 12_000);
+    }
+
+    private void unreachable() {
+        if (loaded && web.getUrl() != null && web.getUrl().startsWith(server())) return;
+        loaded = true;                                                    // one dialog per attempt
+        askServer("Could not reach PathSense at " + server() + ".\n\nThe app shows PathSense from the team's laptop: "
+                + "start_pathsense.bat must be running, and this phone must be on the same Wi-Fi or hotspot as the "
+                + "laptop, or use the public https address if the laptop shares one.");
     }
 
     private String server() {
@@ -108,7 +131,7 @@ public class MainActivity extends Activity {
                     if (!url.startsWith("http")) url = "http://" + url;
                     while (url.endsWith("/")) url = url.substring(0, url.length() - 1);
                     getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_SERVER, url).apply();
-                    web.loadUrl(url);
+                    open(url);
                 })
                 .setNegativeButton("Exit", (d, w) -> finish())
                 .show();
