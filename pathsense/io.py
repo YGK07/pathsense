@@ -207,14 +207,19 @@ def kerb_presses(r, offset):
     return [(t, l) for t, l, kind in labelled_presses(r, offset) if kind == "kerb"]
 
 
-def detect_events(r, mult=2.0, bounds=None):
+# Jolt-detector settings re-derived from the pilot walks (scripts/real_experiments.py, F7): leave-one-walk-out
+# selection over high-pass 0.3-8 Hz, threshold 1.5-4x the footstep, spacing 0.3-1 s. Was 3 Hz / 2x / 0.5 s.
+JOLT_HIGHPASS_HZ, JOLT_MULT, JOLT_SPACING_S = 0.3, 2.0, 0.3
+
+
+def detect_events(r, mult=JOLT_MULT, bounds=None, fc=JOLT_HIGHPASS_HZ, spacing=JOLT_SPACING_S):
     """Kerb-like jolts: peaks of high-passed vertical acceleration above `mult` x the median footstep, inside the walk."""
     a, b = bounds or walking_window(r)
     inside = (r.t > a + 1) & (r.t < b - 1)
-    hp = np.abs(highpass(vertical(r), 3.0, r.fs)) * inside
+    hp = np.abs(highpass(vertical(r), fc, r.fs)) * inside
     steps, _ = find_peaks(hp, distance=int(0.4 * r.fs))
     step = float(np.median(hp[steps])) if len(steps) else 1.0
-    pk, _ = find_peaks(hp, height=mult * step, distance=int(0.5 * r.fs))
+    pk, _ = find_peaks(hp, height=mult * step, distance=max(1, int(spacing * r.fs)))
     return [dict(t=float(r.t[p]), strength=float(hp[p] / step)) for p in pk]
 
 

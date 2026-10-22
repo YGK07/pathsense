@@ -150,7 +150,15 @@ map.on("click", (e) => {
 $("#pick-start").onclick = () => setPick("start");
 $("#pick-end").onclick = () => setPick("end");
 $("#swap").onclick = () => { [S.start, S.end] = [S.end, S.start]; $("#in-start").value = S.start?.label || ""; $("#in-end").value = S.end?.label || ""; drawPins(); if (S.start && S.end) findRoute(); };
+function useLocation(lat, lon) {
+  if (!inCampus(lat, lon)) return toast("You seem to be outside the campus map, so pick the start on the map instead");
+  setPoint("start", lat, lon, "My location"); map.setView([lat, lon], 17);
+}
 $("#locate").onclick = () => {
+  if (window.PathSenseApp) {                         // inside the Android app: the phone's own GPS, no https needed
+    window.__psLocation = useLocation; window.__psLocationError = (m) => toast(m);
+    toast("Finding your location…"); return window.PathSenseApp.locate();
+  }
   if (!navigator.geolocation) return toast("This browser can't share your location");
   navigator.geolocation.getCurrentPosition((p) => {
     const { latitude: lat, longitude: lon } = p.coords;
@@ -441,6 +449,8 @@ async function refreshData(reroute) {
     S.places = places; drawProfiles(); route_();
     setTimeout(() => { map.invalidateSize(); map.fitBounds(CAMPUS); }, 80);
     if (new URLSearchParams(location.search).has("demo")) $("#demo").click();
+    if ("serviceWorker" in navigator && window.isSecureContext)                 // installable app (https or localhost)
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
   } catch (e) {
     $("#statuspill").textContent = "Server not reachable";
     toast("Couldn't load the map: " + e.message, 8000);

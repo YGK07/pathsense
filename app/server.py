@@ -2,6 +2,8 @@
 
     python app/server.py            # http://127.0.0.1:5000 on this computer
     python app/server.py --lan      # also reachable from phones on the same Wi-Fi (http://<this PC's IP>:5000)
+    python app/server.py --lan --https   # https on the Wi-Fi, so phones allow "Use my location" and installing
+                                         # the app (self-signed certificate: each phone asks once to trust it)
 
 On first start it builds the campus map (scripts/run_pipeline.py) and the real-walks layer (scripts/process_walks.py)
 if they are missing. Everything the site needs lives under the project folder:
@@ -12,6 +14,7 @@ if they are missing. Everything the site needs lives under the project folder:
   data/ground_truth/features.csv   barriers reported by the team, with a position
   data/path_conditions.json  path conditions the team set on the site ("Edit paths"), photos in data/photos/
   data/satellite_review.json surfaces checked on satellite imagery
+  data/extra_links.json      short connections OpenStreetMap is missing (e.g. Main Subway road -> tunnel pathway)
 Path conditions come only from real sources (see pathsense/conditions.py); the simulator's values are not used here.
 """
 import argparse, copy, csv, io, json, os, re, socket, subprocess, sys, threading, time, uuid, zipfile
@@ -29,13 +32,31 @@ from process_walks import process, find_walks, load_contributors, load_options
 
 PROFILE_LABELS = {"manual_wheelchair": "Manual wheelchair", "powered_wheelchair": "Powered wheelchair",
                   "crutches": "Crutches or walking aid", "low_vision": "Low vision", "shortest": "Walking (shortest)"}
-# The fixed trip behind the "Demo route" button: the shortest path goes through the TT Subway stairs.
-DEMO = dict(start=(12.97305, 79.16405), end=(12.97100, 79.15843), profile="manual_wheelchair",
-            from_label="Fitty gym (hostel side)", to_label="Souvenier Subway (academic side)")
+# The fixed trip behind the "Demo" button: the shortest path goes through the TT Subway stairs, the wheelchair route
+# through the PRP/SJT Subway road (a kerb up and a kerb down until ramps are added).
+DEMO = dict(start=(12.97322, 79.16440), end=(12.97066, 79.15951), profile="manual_wheelchair",
+            from_label="Fitty gym (hostel side)", to_label="Technology Tower (academic side)")
 REPORT_KINDS = ("stairs", "kerb", "broken", "steep", "blocked")
 EDIT_CHOICES = dict(surface=("smooth", "paved", "broken", "unpaved", "unknown"), kerb=("none", "kerb", "ramp", "unknown"),
                     steps=("no", "yes", "unknown"), slope=("flat", "gentle", "steep", "unknown"))
 PHOTO_TYPES = {b"\xff\xd8\xff": ".jpg", b"\x89PNG": ".png"}
+
+
+def add_links(m, links):
+    """Append connections OSM is missing: each link joins the junctions nearest to its two ends.
+    The new segments get the next free idx and start with no known condition (team edits set it)."""
+    def near(lat, lon):
+        return min(m["nodes"], key=lambda n: (n["lat"] - lat) ** 2 + (n["lon"] - lon) ** 2)
+    nxt = max(e["idx"] for e in m["edges"]) + 1
+    for k, l in enumerate(links):
+        a, b = near(*l["from"]), near(*l["to"])
+        L = max(1.0, ((a["x"] - b["x"]) ** 2 + (a["y"] - b["y"]) ** 2) ** 0.5)
+        flat = dict(grad=0.0, rough=0.3, kerbs=0, cls=0)
+        m["edges"].append(dict(u=a["id"], v=b["id"], idx=nxt + k, length=L, observed=False, name=l.get("name"),
+                               est=dict(flat), true=dict(flat), geom=[[a["lat"], a["lon"]], [b["lat"], b["lon"]]],
+                               geom_from=a["id"], osm_highway=l.get("highway", "footway"), link=True,
+                               osm_surface=l.get("surface"), osm_kerbs=int(l.get("kerbs", 0))))
+    return m
 
 
 def build_graph(m):
@@ -47,7 +68,7 @@ def build_graph(m):
         G.add_edge(e["u"], e["v"], idx=e["idx"], length=e["length"], est=dict(e["est"]), observed=e["observed"],
                    grad=t["grad"], rough=t["rough"], kerbs=t["kerbs"], cls=t["cls"], name=e.get("name"),
                    geom=e.get("geom"), geom_from=e.get("geom_from"),
-                   **{k: v for k, v in e.items() if k.startswith("osm_") or k == "steps"})
+                   **{k: v for k, v in e.items() if k.startswith("osm_") or k in ("steps", "link")})
     return G
 
 
@@ -91,9 +112,11 @@ class World:
         if m is None:
             raise FileNotFoundError(self.p["map"])
         real = self._json("real", {"walks": [], "clusters": [], "summary": {}})
+        m = add_links(m, self._json("links", []))
         G = build_graph(m)
         for *_, d in G.edges(data=True):
-            d.update(self.osm_tags.get(d["idx"], {}))
+            if not d.get("link"):
+                d.update(self.osm_tags.get(d["idx"], {}))
         team, sat = self._json("conditions", {}), self._json("satellite", {})
         cond, spots, maybes = CND.build(G, real, team, sat)
         for *_, d in G.edges(data=True):
@@ -101,6 +124,12 @@ class World:
             d["cond"] = c; d["est"] = CND.attrs(c); d["real_kerbs"] = c["kerbs"]
         barriers = self.team_reports() + self.walk_stairs(real) + [dict(r, source="site") for r in self.site_reports()]
         mark_reported(G, barriers)
+        for *_, d in G.edges(data=True):                 # the team saw a ramp (or no kerb): reported kerbs no longer count
+            c = d["cond"]
+            if (c["ramp"] or c["no_kerb"]) and d["est"]["kerbs"]:
+                hard = d["est"].get("stairs") or d["est"].get("closed")
+                d["est"] = {**d["est"], "kerbs": 0, "cls": 2 if hard else CND.attrs(c)["cls"]}
+                d["reported"] = [r for r in d.get("reported", []) if not r.startswith("kerb")]
         walked = {int(k): len(v) for k, v in real.get("edge_walks", {}).items()}
         for *_, d in G.edges(data=True):
             d["walks"] = walked.get(d["idx"], 0)
@@ -153,7 +182,7 @@ def describe(G, path):
             issues.append(dict(kind="kerb", text="possible kerb (bump found by the phone)", lat=mid[0], lon=mid[1], n=c["maybe"]))
         if a.get("grad", 0) >= 7:
             issues.append(dict(kind="steep", text=f"steep slope (about {a['grad']:.0f}°)", lat=mid[0], lon=mid[1]))
-    return dict(length=round(s["length"]), kerbs_found=s["real_kerbs"], stairs=s["stairs"], closed=s["closed"],
+    return dict(length=round(s["length"]), kerbs_found=s["kerbs"], stairs=s["stairs"], closed=s["closed"],
                 reported=s["reported"], blocked=s["blocked"], caution=s["caution"],
                 walked_pct=round(100 * s["walked_frac"]), mean_rough=round(s["mean_rough"], 2),
                 unpaved_m=round(s["unpaved_m"]), unchecked_pct=round(100 * s["unknown_m"] / max(s["length"], 1)),
@@ -167,7 +196,8 @@ def create_app(root=ROOT, auto_build=True):
                  features=os.path.join(root, "data", "ground_truth", "features.csv"),
                  raw=os.path.join(root, "data", "raw"), osm=os.path.join(root, "data", "osm_vit.json"),
                  conditions=os.path.join(root, "data", "path_conditions.json"),
-                 satellite=os.path.join(root, "data", "satellite_review.json"), photos=os.path.join(root, "data", "photos"))
+                 satellite=os.path.join(root, "data", "satellite_review.json"), photos=os.path.join(root, "data", "photos"),
+                 links=os.path.join(root, "data", "extra_links.json"))
     if auto_build and not os.path.exists(paths["map"]):
         print("Building the campus map (first start, about a minute)...", flush=True)
         subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "run_pipeline.py"), "--osm", paths["osm"],
@@ -198,6 +228,12 @@ def create_app(root=ROOT, auto_build=True):
     @app.get("/")
     def index():
         return page()
+
+    @app.get("/sw.js")
+    def service_worker():                                # served from / so it can control the whole site
+        r = send_from_directory(app.static_folder, "sw.js", mimetype="application/javascript", max_age=0)
+        r.headers["Service-Worker-Allowed"] = "/"
+        return r
 
     @app.get("/api/status")
     def api_status():
@@ -357,7 +393,10 @@ def create_app(root=ROOT, auto_build=True):
                 return bad("that photo could not be read")
         with w.lock:
             team = w._json("conditions", {})
-            photos = team.get(str(idx), {}).get("photos", []) + ([saved] if saved else [])
+            old = team.get(str(idx), {})
+            photos = old.get("photos", []) + ([saved] if saved else [])
+            if "foot" in old:                            # set by hand in the data file, not in the editor
+                entry["foot"] = old["foot"]
             if not entry and not saved:
                 return bad("set at least one thing about this path, or add a photo")
             if photos:
@@ -405,8 +444,8 @@ def create_app(root=ROOT, auto_build=True):
             return bad("choose the .zip that Sensor Logger exported")
         if not re.fullmatch(r"c\d{2,3}", contributor):
             return bad("contributor id must look like c01 (no names, please)")
-        if carry not in ("hand", "pocket"):
-            return bad("carry must be hand or pocket")
+        if carry not in ("hand", "pocket", "trolley"):
+            return bad("carry must be hand, pocket or trolley")
         up = os.path.join(w.p["raw"], "uploads"); os.makedirs(up, exist_ok=True)
         stem = re.sub(r"[^A-Za-z0-9_-]+", "_", os.path.splitext(f.filename)[0])[:60]
         dest = os.path.join(up, f"{time.strftime('%Y%m%d-%H%M%S')}_{contributor}_{stem}.zip")
@@ -475,11 +514,13 @@ if __name__ == "__main__":
     ap.add_argument("--lan", action="store_true", help="also serve phones on the same Wi-Fi")
     ap.add_argument("--port", type=int, default=5000)
     ap.add_argument("--debug", action="store_true")
+    ap.add_argument("--https", action="store_true", help="self-signed https, so phones allow location and install")
     a = ap.parse_args()
     app = create_app()
     host = "0.0.0.0" if a.lan else "127.0.0.1"
-    print(f"\n  PathSense is running:  http://127.0.0.1:{a.port}")
+    scheme = "https" if a.https else "http"
+    print(f"\n  PathSense is running:  {scheme}://127.0.0.1:{a.port}")
     if a.lan and lan_ip():
-        print(f"  On phones (same Wi-Fi): http://{lan_ip()}:{a.port}")
+        print(f"  On phones (same Wi-Fi): {scheme}://{lan_ip()}:{a.port}")
     print("  Stop it with Ctrl+C\n", flush=True)
-    app.run(host=host, port=a.port, debug=a.debug, threaded=True)
+    app.run(host=host, port=a.port, debug=a.debug, threaded=True, ssl_context="adhoc" if a.https else None)

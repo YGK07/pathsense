@@ -5,3 +5,4 @@ networkx>=3.1
 flask>=3.0
 pytest>=7.4
 pillow>=10.0
+cryptography>=42      # only for: python app/server.py --https

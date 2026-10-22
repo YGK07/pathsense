@@ -136,7 +136,7 @@ def build(G, real, team=None, satellite=None):
         cond[i] = dict(surface=surf, surface_src=src, grad=grad, steps=steps, kerbs=int(d.get("osm_kerbs", 0)),
                        kerb_walks=[], maybe=0, ramp=t.get("kerb") == "ramp", no_kerb=t.get("kerb") == "none",
                        team_kerb=t.get("kerb") == "kerb",
-                       narrow=bool(t.get("narrow")), note=t.get("note", ""), photos=t.get("photos", []),
+                       narrow=bool(t.get("narrow")), no_foot=t.get("foot") == "no", note=t.get("note", ""), photos=t.get("photos", []),
                        team=bool(t), team_by=t.get("contributor", ""), team_at=t.get("updated", ""),
                        satellite_note=(sat or {}).get("note", ""), highway=hw, name=d.get("name"))
     spots = kerb_spots(real.get("walks", []))
@@ -170,7 +170,9 @@ def attrs(c):
     grad = c["grad"] or 0.0
     a = dict(grad=grad, rough=S["rough"], kerbs=c["kerbs"], stairs=c["steps"], poor=S["poor"], maybe=c["maybe"],
              unknown=int(c["surface"] == "unknown"), narrow=int(c["narrow"]))
-    if c["kerbs"] or c["steps"] or c["surface"] == "unpaved" or grad >= 7:
+    if c.get("no_foot"):
+        a["closed"] = 1                                  # nobody should walk or roll here (cars only)
+    if c["kerbs"] or c["steps"] or c["surface"] == "unpaved" or grad >= 7 or c.get("no_foot"):
         a["cls"] = 2
     elif c["surface"] == "broken" or c["maybe"] or grad >= 4 or c["narrow"]:
         a["cls"] = 1
@@ -195,4 +197,6 @@ def describe(c):
         out.append(f"slope about {c['grad']:.0f}°")
     if c["narrow"]:
         out.append("narrow")
+    if c.get("no_foot"):
+        out.append("not for walking (vehicles only)")
     return out

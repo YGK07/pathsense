@@ -1,1 +1,47 @@
-{}
+{
+ "142": {
+  "foot": "no",
+  "note": "Main Subway tunnel road: vehicles only inside the tunnel; walk or roll on the pathway beside it",
+  "contributor": "c01",
+  "updated": "2026-10-22 10:00"
+ },
+ "214": {
+  "surface": "paved",
+  "kerb": "none",
+  "steps": "no",
+  "note": "Pathway through the Main Subway tunnel (the Souvenier Subway pedestrian passage)",
+  "contributor": "c01",
+  "updated": "2026-10-22 10:00"
+ },
+ "199": {
+  "steps": "yes",
+  "note": "Souvenier Subway: steps down from Lee Road into the underpass",
+  "contributor": "c01",
+  "updated": "2026-10-22 10:00"
+ },
+ "215": {
+  "steps": "yes",
+  "note": "Souvenier Subway: steps up to the academic side",
+  "contributor": "c01",
+  "updated": "2026-10-22 10:00"
+ },
+ "135": {
+  "steps": "yes",
+  "note": "Souvenier Subway: steps up to the academic side",
+  "contributor": "c01",
+  "updated": "2026-10-22 10:00"
+ },
+ "183": {
+  "surface": "paved",
+  "slope": "gentle",
+  "note": "Road slope down from Lee Road to the Main Subway (the step-free way in)",
+  "contributor": "c01",
+  "updated": "2026-10-22 10:00"
+ },
+ "128": {
+  "foot": "no",
+  "note": "Railway level crossing at the west edge (gates, cars): the team says the only ways across the railway are the Main Subway, the Souvenier Subway and the PRP/SJT Subway",
+  "contributor": "c01",
+  "updated": "2026-10-22 10:00"
+ }
+}

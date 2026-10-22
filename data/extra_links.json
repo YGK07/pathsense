@@ -1,0 +1,16 @@
+[
+ {
+  "name": "Main Subway: road to the tunnel pathway",
+  "from": [
+   12.97158,
+   79.15826
+  ],
+  "to": [
+   12.97159,
+   79.1583
+  ],
+  "note": "Wheelchair users come down the road slope from Lee Road, then hop up onto the pathway through the tunnel",
+  "surface": "paved",
+  "kerbs": 1
+ }
+]

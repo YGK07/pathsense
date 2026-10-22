@@ -9,6 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="/static/app.css">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<meta name="theme-color" content="#0F1E3D">
+<link rel="icon" href="/static/icon-192.png">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
@@ -123,7 +127,7 @@
         </div>
         <div class="form-grid">
           <label>Contributor id<input id="up-contrib" placeholder="e.g. c04" pattern="c[0-9]{2,3}"></label>
-          <label>Phone carried<select id="up-carry"><option value="hand">In my hand</option><option value="pocket">In my pocket</option></select></label>
+          <label>Phone carried<select id="up-carry"><option value="hand">In my hand</option><option value="pocket">In my pocket</option><option value="trolley">On a trolley / wheelchair</option></select></label>
         </div>
         <div class="row"><button class="btn primary" id="upload" disabled>Upload and update the map</button></div>
         <div class="uploadres" id="upres"></div>

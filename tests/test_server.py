@@ -155,3 +155,20 @@ def test_button_pressed_kerbs_prefer_the_footpath():
     assert cond[1]["kerbs"] == 1 and cond[0]["kerbs"] == 0 and cond[0]["maybe"] == 1
     assert cond[0]["surface"] == "smooth" and cond[1]["surface"] == "unknown" and cond[2]["surface"] == "unpaved"
     assert C.attrs(cond[2])["poor"] == 1 and C.attrs(cond[1])["unknown"] == 1
+
+
+def test_extra_link_and_vehicles_only(tmp_path, client):
+    # a missing connection C->B with a kerb, and the direct stairs path marked vehicles-only
+    json.dump([dict(name="link", **{"from": [12.9700, 79.1610], "to": [12.9709, 79.1600]}, surface="paved", kerbs=1)],
+              open(client.root / "data" / "extra_links.json", "w"))
+    json.dump({"0": dict(foot="no", note="cars only")}, open(client.root / "data" / "path_conditions.json", "w"))
+    app = create_app(root=str(client.root), auto_build=False); c = app.test_client()
+    m = c.get("/api/map").get_json()
+    link = next(e for e in m["edges"] if e["name"] == "link")
+    assert link["idx"] == 4 and link["est"]["kerbs"] == 1
+    assert "not for walking (vehicles only)" in next(e for e in m["edges"] if e["idx"] == 0)["cond"]["lines"]
+    r = c.get(f"/api/route?profile=shortest&from={A}&to={B}").get_json()
+    assert r["pathsense"]["kerbs_found"] == 1 and r["pathsense"]["closed"] == 0     # walkers use the link, not the road
+    # re-saving the segment in the editor keeps the vehicles-only mark
+    c.post("/api/conditions/0", data=dict(surface="smooth"), content_type="multipart/form-data")
+    assert json.load(open(client.root / "data" / "path_conditions.json"))["0"]["foot"] == "no"

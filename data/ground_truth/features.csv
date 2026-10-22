@@ -4,9 +4,11 @@ f002,r01,kerb,,,Side footpath near Watson Road / M Block (up when going gym->L B
 f003,r01,kerb,,,Same footpath after M Block (down when going gym->L Block),10,unknown,,c01,Reported 2026-10-15
 f004,r01,kerb,,,Onto footpath towards L Block (up when going gym->L Block),10,unknown,,c01,Reported 2026-10-15; footpath then cuts on/off for the roadway several times at the same ~10 cm height (count unknown)
 f005,r01,kerb,,,Final kerb at L Block (down when going gym->L Block),10,unknown,,c01,Reported 2026-10-15
-f006,r02,steps,12.97138,79.16036,TT Subway south exit: several steps up to the road (no ramp),,no,,c01,Reported 2026-10-16 by George; blocks wheelchairs
-f007,r02,steps,12.972466,79.163804,Loop by M Annex: staircase down to the subway (west half),,no,,c01,Reported 2026-10-16 by George; blocks wheelchairs
-f008,r02,steps,12.972588,79.164605,Loop by M Annex: staircase down to the subway (east half),,no,,c01,Reported 2026-10-16 by George; blocks wheelchairs
-f009,r02,steps,12.972406,79.165192,PRP/SJT Subway: staircase up to the academic side,,no,,c01,Reported 2026-10-16 by George; blocks wheelchairs
-f010,r02,steps,12.972411,79.165214,PRP/SJT Subway: staircase up to the academic side,,no,,c01,Reported 2026-10-16 by George; blocks wheelchairs
-f011,r02,steps,12.972273,79.16527,PRP/SJT Subway: staircase up to the academic side,,no,,c01,Reported 2026-10-16 by George; blocks wheelchairs
+f006,r02,steps,12.97138,79.16036,TT Subway south exit: several steps up to the road (no ramp),,no,,c01,Reported 2026-10-16 by c01; blocks wheelchairs
+f007,r02,steps,12.972466,79.163804,Loop by M Annex: staircase down to the subway (west half),,no,,c01,Reported 2026-10-16 by c01; blocks wheelchairs
+f008,r02,steps,12.972588,79.164605,Loop by M Annex: staircase down to the subway (east half),,no,,c01,Reported 2026-10-16 by c01; blocks wheelchairs
+f009,r02,kerb,12.972406,79.165192,PRP/SJT Subway road (west lane): kerb up from the road,,no,,c01,Corrected 2026-10-22 by c01: the road through the subway has a kerb up and a kerb down (no ramp); ramps would fix it
+f012,r02,kerb,12.972406,79.165192,PRP/SJT Subway road (west lane): kerb down to the road,,no,,c01,Corrected 2026-10-22 by c01: the road through the subway has a kerb up and a kerb down (no ramp); ramps would fix it
+f010,r02,kerb,12.972411,79.165214,PRP/SJT Subway road (east lane): kerb up from the road,,no,,c01,Corrected 2026-10-22 by c01: the road through the subway has a kerb up and a kerb down (no ramp); ramps would fix it
+f013,r02,kerb,12.972411,79.165214,PRP/SJT Subway road (east lane): kerb down to the road,,no,,c01,Corrected 2026-10-22 by c01: the road through the subway has a kerb up and a kerb down (no ramp); ramps would fix it
+f011,r02,steps,12.972273,79.16527,PRP/SJT Subway: staircase up to the academic side,,no,,c01,Reported 2026-10-16 by c01; blocks wheelchairs
