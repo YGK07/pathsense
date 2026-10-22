@@ -1,0 +1,22 @@
+# Publishes the anonymised PathSense trace dataset as a downloadable zip release whenever it changes.
+name: Dataset release
+on:
+  push:
+    paths: ["dataset/**", ".github/workflows/dataset.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zip the dataset
+        run: cd dataset && zip -qr ../pathsense-vit-v1.zip pathsense-vit-v1
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "dataset-v1.${{ github.run_number }}" pathsense-vit-v1.zip \
+            --target "${{ github.sha }}" --title "PathSense VIT pedestrian accessibility traces v1 (build ${{ github.run_number }})" \
+            --notes-file dataset/pathsense-vit-v1/README.md

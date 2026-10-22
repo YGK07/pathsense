@@ -62,7 +62,10 @@ Deep-learning part (functionalities 3 & 4): `pip install -r requirements-ml.txt 
 | 6 | Profile-conditioned A* routing | `pathsense/routing.py`, `pathsense/conditions.py` | works on the real map (website); beats a Western-centric profile |
 | 7 | Pre-processing re-derived from pilot data | `scripts/real_experiments.py` (F7), `pathsense/io.py` | detector settings and window length chosen from the walks; **walking only, trolley runs still to record** |
 
-Also: `scripts/export_dataset.py` (anonymised dataset, kept local until everyone consents), `scripts/benchmark_rig.py`
+**Dataset:** the anonymised traces are published in [`dataset/pathsense-vit-v1/`](dataset/pathsense-vit-v1/) (12 walks,
+120 marked kerb crossings, 525 segments with conditions; CC BY 4.0, segments ODbL) and as a zip under Releases.
+Rebuild it with `python scripts/export_dataset.py --consented <date>`.
+Also: `scripts/benchmark_rig.py`
 + `docs/BENCHMARK_RIG.md` (validation against a reference IMU / tape and level), the Western-centric comparison
 (in `real_experiments.py`). The simulator results (`scripts/run_pipeline.py`, `scripts/train_ssl_dann.py`) remain for
 development only.

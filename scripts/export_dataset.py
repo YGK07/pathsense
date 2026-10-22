@@ -46,8 +46,8 @@ Collected {date_range} by {n_contributors} contributors on {n_phones} phone mode
 Traces and labels: CC BY 4.0. Segment geometry and OSM-derived attributes: (c) OpenStreetMap contributors, ODbL 1.0
 (share-alike); keep this notice with the segments.
 
-## CONSENT (fill in before publishing)
-Every contributor below must agree to their traces being published in this anonymised form.
+## Consent
+Every contributor must agree to their traces being published in this anonymised form.
 {consent}
 
 ## Known limitations
@@ -131,7 +131,8 @@ def main(a):
         date_range=f"{rows[0]['date']} to {rows[-1]['date']}", n_contributors=len(contributors),
         n_phones=len({r['phone_model'] for r in rows}), platforms=", ".join(sorted({r['platform'] for r in rows})),
         trim=a.trim, n_segments=len(seg_rows), n_walks=len(rows),
-        consent="\n".join(f"- [ ] {c} agrees (name/date kept by the team, not in this file)" for c in contributors)))
+        consent="\n".join(f"- [x] {c} agreed ({a.consented})" if a.consented else f"- [ ] {c} (not yet)"
+                          for c in contributors)))
     size = sum(os.path.getsize(os.path.join(dp, f)) for dp, _, fs in os.walk(out) for f in fs)
     print(f"wrote {out}: {len(rows)} walks, {len(seg_rows)} segments, {size / 1e6:.1f} MB")
 
@@ -139,4 +140,5 @@ def main(a):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--name", default="pathsense-vit-v1"); ap.add_argument("--trim", type=float, default=30.0)
+    ap.add_argument("--consented", default="", help="date every contributor agreed to publication, e.g. 2026-10-22")
     main(ap.parse_args())

@@ -1,0 +1,13 @@
+walk_id,title,contributor,phone_model,platform,carry,date,duration_s,length_m,synced,labels,gps_median_acc_m,press_lag_s
+w01,Fitty gym to L Block,c01,iPhone 15,ios,hand,2026-10-15,189,277,False,0,7.8,
+w02,L Block to Fitty gym,c01,iPhone 15,ios,hand,2026-10-15,182,246,False,0,9.7,
+w03,Fitty gym to L Block (second walk),c01,iPhone 15,ios,hand,2026-10-15,179,263,False,0,6.7,
+w04,T Block to Q Block,c02,CPH2569,android,hand,2026-10-15,335,450,False,0,5.3,
+w05,L Block to One Food World,c01,iPhone 15,ios,hand,2026-10-15,478,741,True,16,9.4,-0.88
+w06,Q Block to T Block,c02,CPH2569,android,hand,2026-10-15,294,444,False,0,5.3,
+w07,One Food World to L Block,c01,iPhone 15,ios,hand,2026-10-15,495,760,True,21,7.5,-0.33
+w08,L Block to SJT,c01,iPhone 15,ios,hand,2026-10-21,558,944,False,0,6.8,
+w09,SJT to L Block through the train subway,c01,iPhone 15,ios,hand,2026-10-21,519,849,True,18,5.6,-0.19
+w10,Main gate to L Block along Katpadi-Thiruvalam Road,c03,iPhone 16,ios,hand,2026-10-21,1256,1848,True,30,5.1,1.04
+w11,Main gate to men's hostel entrance,c01,iPhone 15,ios,hand,2026-10-21,273,404,True,6,5.6,-0.22
+w12,Men's hostel entrance to L Block,c01,iPhone 15,ios,hand,2026-10-21,596,879,True,14,5.2,-0.26
